@@ -63,7 +63,7 @@ state 丢失/重置的后果因此是有界的：`next_seq` 从磁盘清单续�
 
 **消费侧同形拒绝**：`ssh-sync.py` 的 pull 侧按同一形状集拒绝（裸族级容器、`gc/` 自树、`topic/dispatcher` 保护资产、绝对路径 / `..` / 通配符），因为消费侧信任清单、删除就发生在那里——存量 junk 或伪造条目若不在此拦住，一条 `agents/` 就等于四机各自 `rmtree` 整棵树。形状权威 = `gc.py`（元组在 `ssh-sync.py` 逐字镜像：该进程不得 `import gc`，脚本形态下 `sys.path[0]` = `agents-sync/` 会遮蔽标准库同名模块）。拒绝告警在常驻侧**按 300s 节流**（一次一条汇总、带被抑制计数），短命 CLI 侧每次调用一行——两侧读清单的频率差三个量级。
 
-**版本纪律口径**：`gc.py` 是 per-invocation CLI（无常驻进程面），**不入 `agents-sync` 服务版本面**——改动在下次调用即生效，不 bump `env/services.yml` 的 version、无需重启任何服务；该服务的版本面是常驻的 `ssh-sync.py watch`（消费侧改动属常驻面，要 bump + 各机重启）。口径与边界权威 = `gc.py` docstring。
+**版本纪律口径**：`gc.py` 是 per-invocation CLI（无常驻进程面），**不入 `agents-sync` 服务版本面**——改动在下次调用即生效，不 bump 服务 profile 的 `version`、无需重启任何服务；该服务的版本面是常驻的 `ssh-sync.py watch`（消费侧改动属常驻面，要 bump + 各机重启）。口径与边界权威 = `gc.py` docstring。
 
 ## 常用命令
 
@@ -78,6 +78,6 @@ make agents-sync.start/.stop/.status                # 本机 agents/ 跨机同�
 
 ## 指针
 
-- 部署面（服务定义、拓扑、属组闸门接入流程）：`env/services.yml` 的 `agents-sync` 条目、`loop.sh`、`bootstrap/SETUP.md` §8
+- 部署面（服务定义、拓扑、属组闸门接入流程）：工作区的 `services/profiles/agents-sync.json` + 各机 `services/daemons/<机>.agents-sync.json`、`loop.sh`、`bootstrap/SETUP.md` §8
 - 传输契约与文件协议：`@agentd#sync-channel`、`agentd/agent-file-protocol.md`
 - 云端存储同步（PikPak / WebDAV）：`dsync/` 子仓

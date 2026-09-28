@@ -94,7 +94,7 @@ discipline; env/host-id maps hostname -> canonical name):
   - ``enable.json``                         -> the SCHEDULING side:
     ``by`` (protocol §14.2) resolvable -> that writer's host;
     ``agentd-scheduler`` / unresolvable -> hub. The scheduler is a
-    single global instance pinned to the hub host (env/services.yml
+    single global instance pinned to the hub host (the service registry's
     ``scheduler.hosts``) and releases tasks on EVERY host
     (``--all-hosts``), so attributing enable.json to createdByHost
     tagged the hub's own originals as replica for every task
@@ -178,7 +178,7 @@ ticket field maps to a host as follows, in order:
 ``hub`` = canonical name ``dev`` — the machine hosting the neutral hub
 directory ``dev:/data/shared/agents`` (agents-sync/loop.sh
 ``REMOTE``), the dispatcher/resident sessions and the single global
-scheduler (env/services.yml ``scheduler.hosts``). It was ``nv1`` until
+scheduler (only one machine declares ``scheduler``). It was ``nv1`` until
 the hub migration (agents-sync v7 → v8).
 
 UNKNOWN files stay UNMARKED (failure is asymmetric: worst case a
@@ -217,7 +217,7 @@ _WORKSPACE = os.path.abspath(
 # Hub = the machine hosting the neutral hub directory
 # dev:/data/shared/agents (agents-sync/loop.sh REMOTE), the
 # dispatcher/resident sessions, the IM bridge sessions and the single
-# global agentd scheduler (env/services.yml scheduler.hosts). It was
+# global agentd scheduler (declared on one machine only). It was
 # nv1 until the hub migration — see the writer
 # resolution rules in the docstring.
 HUB = "dev"
@@ -612,7 +612,7 @@ class Ctx:
 def classify_enable(rel, spec, ctx):
     """enable.json = the scheduling side's release record (protocol
     §14.2). The scheduler is a single global instance pinned to the hub
-    host (env/services.yml ``scheduler.hosts``) and releases tasks on
+    host (the machine declaring ``scheduler``) and releases tasks on
     EVERY host (``--all-hosts``), so the writer is normally the hub —
     NOT spec.createdByHost (that mis-attribution tagged the hub's own
     originals as replica for every task registered on another machine:

@@ -39,22 +39,22 @@
 # 进程）；缺组且无 `sg`（macOS 等）∨ 已自愈过一次仍缺组 ⇒ 打**一行** ERROR（含可直接
 # 复制的修法命令）后 `exit 1`，**绝不进循环**。判定一律用组名（`id -Gn`）——gid 形态要先
 # `getent group` 而 macOS 无 getent，会让整块判定在 mac 上跳过（既不自愈也不响亮失败 =
-# `svc.status` 假绿、链路实死）。
+# `serviced.status` 假绿、链路实死）。
 # exec 形态不破 match 语义（实测）：`sg` 与其 `$SHELL -c` 都是单条简单命令 ⇒ 整链原地 exec
 # **塌缩成一个进程**，pid/pgid/sid/cwd 全不变、cmdline 仍逐字 `bash agents-sync/loop.sh`
-# ⇒ services.yml 的 `match`/`stop_match`、svc.py 的 pidfile（pid+lstart）身份与 killpg 停服
+# ⇒ profile 的 `match`/`stop_match`、serviced.py 的 pidfile（pid+lstart）身份与 killpg 停服
 # 语义都不破。
 # **已知影响**：经 sg（setgid）起的进程及其全部子孙是 non-dumpable ⇒ 同用户也读不到
 # /proc/<pid>/fd，`lsof <日志路径>` 对它们返回空（/proc/<pid>/status、cmdline 仍可读 ⇒
 # 判活、核 Groups、匹配 cmdline 不受影响）。任何「谁持有这个文件」的判据对这类进程一律
-# 不可信，故 `make logs.trim` 对 run/logs/*.log 一律原地 truncate（svc.py:cmd_trim）。
+# 不可信，故 `make logs.trim` 对 run/logs/*.log 一律原地 truncate（serviced.py:cmd_trim）。
 #
 # ssh 配置：节点机通常没有 env/.live/ssh-hosts（gitignored），故用 SSH_SYNC_CONFIG 指向
 # ~/.ssh/config（其中须有 Host dev 别名指向 hub）。
 # python3 解析：watchdog 只装在 ~/miniconda3 —— 若 python3 解析到 macOS 的
 # /opt/homebrew/bin/python3，本地检测会从 watchdog/FSEvents 掉到「无后端」（只剩
-# --interval 驱动）。该解析由 svc.py 给服务子进程的规范 PATH 保证（口径 =
-# svc/README.md 的 svc.py 条目）：conda 的 bin 在其前缀里优先于 homebrew。rsync 的解析
+# --interval 驱动）。该解析由 serviced.py 给服务子进程的规范 PATH 保证（口径 =
+# serviced/README.md 的 serviced.py 条目）：conda 的 bin 在其前缀里优先于 homebrew。rsync 的解析
 # 固化在 ssh-sync.py 内部（优先 /usr/local/bin/rsync + --rsync-path），不依赖此处 PATH。
 #
 # 日志：$WS/run/logs/agents-sync.log（watch 自身输出也写同一文件）。
@@ -70,7 +70,7 @@ mkdir -p "$WS/run/logs"
 _gid_die() {  # 一行 ERROR（根因 + 可直接复制的修法）后退出，绝不进重拉循环
   local msg
   msg="$(date '+%F %T') [agents-sync-loop] ERROR: 启动会话凭据缺 ${REPLICA_GROUP} 补充组，ssh-sync.py 属组闸门会拒绝运行（$1）。修法（复制执行，stop/start 分两次）: sg ${REPLICA_GROUP} -c \"make agents-sync.stop\" 然后 sg ${REPLICA_GROUP} -c \"make agents-sync.start\"；或 sudo usermod -aG ${REPLICA_GROUP} \$USER 后从**新登录会话**重启。不进入重拉循环。"
-  # 服务态下 svc.py 已把本进程 stderr 接到同一个日志文件（inode 相同）⇒ 只写 stderr
+  # 服务态下 serviced.py 已把本进程 stderr 接到同一个日志文件（inode 相同）⇒ 只写 stderr
   # 一次，避免同一行在日志里重复；前台运行时两处都写。（该 test 上不能挂
   # 2>/dev/null：重定向会把 /proc/self/fd/2 自己改掉，实测则判假、两处都写。）
   if [ /proc/self/fd/2 -ef "$LOG" ]; then
