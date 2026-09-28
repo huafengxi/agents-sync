@@ -231,7 +231,7 @@ DEFAULT_SSH_CONFIG = os.path.join(_WORKSPACE, "env", ".live", "ssh-hosts")
 # Defaults for the optional `watch` positional args: the cross-machine
 # agents/ sync link (star topology, hub = the neutral directory
 # dev:/data/shared/agents; each machine runs its own link — see
-# env/services.yml `agents-sync` and svc/agents-sync-loop.sh).
+# env/services.yml `agents-sync` and agents-sync/loop.sh).
 DEFAULT_LOCAL_DIR = os.path.join(_WORKSPACE, "agents")
 DEFAULT_REMOTE = "dev:/data/shared/agents"
 

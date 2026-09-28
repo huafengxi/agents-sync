@@ -9,7 +9,7 @@ added after the three-clan layout split, following the
 topic push unification).
 
 PURE MANUAL TOOL: nothing in the agents-sync service call chain
-invokes this script (svc/agents-sync-loop.sh and agents-sync/ssh-sync.py
+invokes this script (agents-sync/loop.sh and agents-sync/ssh-sync.py
 only mention it in comments) — it is run by hand per
 bootstrap/SETUP.md §「agents/ 跨机同步」, so changing it needs no
 service version bump and no restart.
@@ -176,7 +176,7 @@ ticket field maps to a host as follows, in order:
 + anything else                            -> unknown
 
 ``hub`` = canonical name ``dev`` — the machine hosting the neutral hub
-directory ``dev:/data/shared/agents`` (svc/agents-sync-loop.sh
+directory ``dev:/data/shared/agents`` (agents-sync/loop.sh
 ``REMOTE``), the dispatcher/resident sessions and the single global
 scheduler (env/services.yml ``scheduler.hosts``). It was ``nv1`` until
 the hub migration (agents-sync v7 → v8).
@@ -215,7 +215,7 @@ REPLICA_GROUP = "replica"
 _WORKSPACE = os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 # Hub = the machine hosting the neutral hub directory
-# dev:/data/shared/agents (svc/agents-sync-loop.sh REMOTE), the
+# dev:/data/shared/agents (agents-sync/loop.sh REMOTE), the
 # dispatcher/resident sessions, the IM bridge sessions and the single
 # global agentd scheduler (env/services.yml scheduler.hosts). It was
 # nv1 until the hub migration — see the writer

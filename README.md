@@ -8,7 +8,7 @@ anchors:
 
 # agents-sync/ — agents/ 跨机同步（rsync over ssh）
 
-`agents/` 运行时树的跨机同步链路：星型拓扑，hub = 中立目录 `dev:/data/shared/agents`（零原件），dev/nv1/nv2/mac 四机对等。服务名 `agents-sync`（`make agents-sync.start/.stop/.status`），常驻监督壳 = `svc/agents-sync-loop.sh`，传输契约权威 = `ssh-sync.py` docstring + `@agentd#sync-channel`。（云端存储同步 PikPak/WebDAV 是另一回事，在 `dsync/` 子仓。）
+`agents/` 运行时树的跨机同步链路：星型拓扑，hub = 中立目录 `dev:/data/shared/agents`（零原件），dev/nv1/nv2/mac 四机对等。服务名 `agents-sync`（`make agents-sync.start/.stop/.status`），常驻监督壳 = `loop.sh`，传输契约权威 = `ssh-sync.py` docstring + `@agentd#sync-channel`。（云端存储同步 PikPak/WebDAV 是另一回事，在 `dsync/` 子仓。）
 
 ## 是什么
 
@@ -24,7 +24,7 @@ anchors:
 
 `ssh-sync.py watch` 是**一个循环**：一轮 = 一次整树 push（白名单 = 本地未标记文件）+ 一次整树 pull（黑名单 = 本地未标记文件受保护），跳过判据 = rsync 自己的 `-c` 内容校验和。**检测器只回答「有没有变更」**：不记路径、不分类事件、不做快照、不参与覆盖裁决——一轮的成本与变更量无关，所以不需要候选集 / 完整性网 / 快照增量刷新这一整层机制。
 
-轮次节奏三个参数（`svc/agents-sync-loop.sh` 里显式传）：
+轮次节奏三个参数（`loop.sh` 里显式传）：
 
 + `--debounce`（0.5s）：**首事件窗口**——首个未消费事件记时间戳、后续事件只加计数，故持续 churn 下仍保证「首事件后 ≥debounce 必跑一轮」（静默窗语义会饿死）；
 + `--min-cycle`（3s）：两轮之间的**速率下限**（一轮实测约 1s，见下）；
@@ -78,6 +78,6 @@ make agents-sync.start/.stop/.status                # 本机 agents/ 跨机同�
 
 ## 指针
 
-- 部署面（服务定义、拓扑、属组闸门接入流程）：`env/services.yml` 的 `agents-sync` 条目、`svc/agents-sync-loop.sh`、`bootstrap/SETUP.md` §8
+- 部署面（服务定义、拓扑、属组闸门接入流程）：`env/services.yml` 的 `agents-sync` 条目、`loop.sh`、`bootstrap/SETUP.md` §8
 - 传输契约与文件协议：`@agentd#sync-channel`、`agentd/agent-file-protocol.md`
 - 云端存储同步（PikPak / WebDAV）：`dsync/` 子仓
