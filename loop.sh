@@ -28,7 +28,7 @@
 # 监督：watch 进程退出（崩溃/断链）则记日志、有界退避后自动拉起——连续「短命退出」
 # （存活 <10s）睡眠翻倍至上限 60s，某次存活 ≥60s 即复位回 2s（避免闸门类必然失败变成
 # 2s 无限热循环刷日志）；SIGTERM/SIGINT 优雅退出（trap 带走子进程）。形态照抄
-# agentd-loop.sh。
+# agentd/loop.sh。
 #
 # **replica 补充组要求 + 自愈 + 响亮失败**：ssh-sync.py 的属组闸门要求**进程凭据**里有
 # replica 组（落盘一律 --chown=:replica，本地 chgrp 自检 EPERM 即 die）。/etc/group 有该组、
@@ -142,7 +142,7 @@ while :; do
     if [ "$SLEEP" -eq 60 ] && [ "$CAPPED" -eq 0 ]; then CAPPED=1; echo "$(date '+%F %T') [agents-sync-loop] watch 连续快失败（本次存活 ${alive}s <10s），退避至 60s，请查上面的错误" >> "$LOG"; fi
   elif [ "$alive" -ge 60 ]; then SLEEP=2; CAPPED=0; fi
   echo "$(date '+%F %T') [agents-sync-loop] watch 退出 rc=${rc}（存活 ${alive}s），${SLEEP}s 后重启" >> "$LOG"
-  # 分片 sleep，保证 TERM 能被及时处理（同 agentd-loop.sh）
+  # 分片 sleep，保证 TERM 能被及时处理（同 agentd/loop.sh）
   sleep "$SLEEP" &
   CHILD=$!
   wait "$CHILD" 2>/dev/null
