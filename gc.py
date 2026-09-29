@@ -205,10 +205,10 @@ FORBIDDEN_LAYOUT_DIRS = ()
 # e2e assertion (agentd/e2e.py S41) — adding a new system topic on only one side
 # turns that check red.
 #
-# Live daemon bots (notify-user / heartbeat-loop / dispatcher / domain leads)
-# are DELIBERATELY NOT listed here: their names live in the declaration face
-# bots/daemon/, and hard-coding them into this tuple would create a second roster
-# to keep in sync by hand. Their deletion guard is behavioural (cleanup tasks
+# Live daemon bots are DELIBERATELY NOT listed here: their names live in the
+# declaration face bots/daemon/, and hard-coding them into this tuple would
+# create a second roster to keep in sync by hand (this comment used to carry
+# such an example roster and drifted the moment a bot was retired). Their deletion guard is behavioural (cleanup tasks
 # skip bot/ by default; deleting a bot needs explicit user authorisation) plus
 # the auditable delete-list ledger. Ruling + re-open triggers:
 # the workspace decision log.
