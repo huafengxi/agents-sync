@@ -108,8 +108,8 @@ redundant layer):
   ``add``'s compression step authorizes: no list content, whatever seq
   it claims, can schedule the deletion of a surviving list;
 + a deletion must name a CONCRETE PARTICIPANT directory (``task/<id>/``,
-  ``bot/<name>/``, ``topic/<id>/``): a bare family container
-  (``agents/``, ``task/``, ``bot/``, ``topic/``, ``run/``) names no
+  ``bot/<name>/``, ``topic/<id>/``, ``queue/<name>/``): a bare family container
+  (``agents/``, ``task/``, ``bot/``, ``topic/``, ``queue/``, ``run/``) names no
   participant and is refused — one such line would delete a whole clan,
   and because the lists are cumulative and append-only it would sit in
   the ledger forever, deleting any same-named subtree the moment it
@@ -178,22 +178,22 @@ DEFAULT_DELAY = 300.0  # seconds; see module docstring for rationale
 # Iron rule (the bot/ clan's immortality was removed by user decision
 # 2026-09-06): the typed
 # layout subtree bot/ is NO LONGER immortal — it is deletable through
-# the gc channel like task/ and topic/ (all three clans are ephemeral
-# or explicitly-ruled purgeable; topic = collaboration containers).
+# the gc channel like task/, topic/ and queue/ (all four clans are
+# ephemeral or explicitly-ruled purgeable; topic = collaboration
+# containers, queue = stateless request stations).
 # The tuple stays as the mechanism for listing any
 # future cleanup-exempt clan (with the audited --force bypass below).
 # Critical single assets stay protected via PROTECTED_SYSTEM_PATHS.
 # HUB-SIDE ONLY defense.
 FORBIDDEN_LAYOUT_DIRS = ()
 
-# System-asset preserve list: the dispatcher
-# position mailbox moved INTO the deletable topic family
-# (bot/dispatcher/ -> topic/dispatcher/) when the copy-fanout channel
-# forwarder was retired in favour of shared direct subscription. It is
-# critical infrastructure (runner terminal notifications + child
-# ask_dispatcher + human/service inform write entry; the dispatcher
-# session subscribes to it via watcher/): losing it loses every task
-# notification. Refused at any depth EVEN with the audited --force
+# System-asset preserve list: the dispatcher position mailbox — the
+# reaper fallback target for every task in the system (runner terminal
+# notifications + child ask_dispatcher + human/service inform write
+# entry). Both of its carrier addresses are listed (the same mailbox
+# has a landing point in two families): losing either loses task
+# notifications, and the fallback face must be writable
+# unconditionally. Refused at any depth EVEN with the audited --force
 # bypass — un-protecting means editing this tuple (a reviewed code
 # change), not passing a CLI flag. Paths are relative to agents/,
 # prefix-matched on path elements ("topic/dispatcher" also protects
@@ -212,7 +212,7 @@ FORBIDDEN_LAYOUT_DIRS = ()
 # skip bot/ by default; deleting a bot needs explicit user authorisation) plus
 # the auditable delete-list ledger. Ruling + re-open triggers:
 # the workspace decision log.
-PROTECTED_SYSTEM_PATHS = ("topic/dispatcher",)
+PROTECTED_SYSTEM_PATHS = ("topic/dispatcher", "queue/dispatcher")
 
 # Hub neutral directory: the authoritative
 # agents/ tree moved out of the participant workspace to this neutral
@@ -224,14 +224,15 @@ NEUTRAL_HUB_DIR = "/data/shared/agents"
 # are globs; newline would split an entry.
 GLOB_UNSAFE = set("*?[\n")
 
-# Bare family containers: the three layout clan names (same triple as
+# Bare family containers: the four layout clan names (same tuple as
 # agentd/proto.py LAYOUT_DIRS — this module stays stdlib-only, so the
-# names are pinned here rather than imported) plus the tree-root-
+# names are pinned here rather than imported; the equality is asserted
+# by agentd/e2e.py S41) plus the tree-root-
 # isomorphic ``agents`` and the workspace-level container name ``run``.
 # Such an entry names NO participant, so a single line would delete an
 # entire clan (or, for a same-named subtree under the tree, the whole
 # tree). A deletion must name a concrete participant directory
-# (``task/<id>/``, ``bot/<name>/``, ``topic/<id>/``). Structural guard:
+# (``task/<id>/``, ``bot/<name>/``, ``topic/<id>/``, ``queue/<name>/``). Structural guard:
 # enforced at all three points (add / read-compression / delete) and
 # NOT liftable by the audited --force bypass. Only the BARE depth-1
 # container is refused — every path below it stays deletable, including
@@ -243,7 +244,7 @@ GLOB_UNSAFE = set("*?[\n")
 # channel can no longer delete (hand-rm only, against the deletion-channel
 # iron rule) for the sole gain of a tidier ledger. Ruling + re-open triggers:
 # the workspace decision log.
-BARE_FAMILY_ENTRIES = ("agents", "task", "bot", "topic", "run")
+BARE_FAMILY_ENTRIES = ("agents", "task", "bot", "topic", "queue", "run")
 
 # Audited force bypass (2026-08-31 user decision): the
 # inline marker that ``add --force`` appends to cleanup-exempt entries
@@ -307,7 +308,7 @@ def validate_path(e, force=False):
     if len(parts) == 1 and parts[0] in BARE_FAMILY_ENTRIES:
         return (f"{parts[0]}/ is a BARE FAMILY CONTAINER — it names no "
                 "participant; a deletion must name a concrete participant "
-                "directory (task/<id>/, bot/<name>/, topic/<id>/). "
+                "directory (task/<id>/, bot/<name>/, topic/<id>/, queue/<name>/). "
                 "Refused even with --force; un-refuse = edit "
                 "BARE_FAMILY_ENTRIES in agents-sync/gc.py")
     for prot in PROTECTED_SYSTEM_PATHS:

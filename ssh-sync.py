@@ -334,13 +334,15 @@ GC_FORCE_MARK = " #FORCED:"
 # ``agents-sync/gc.py``'s ``validate_path``/``BARE_FAMILY_ENTRIES``/
 # ``PROTECTED_SYSTEM_PATHS`` are the authority; the tuples are mirrored
 # here verbatim because this process must NOT import gc.py (as a script,
-# sys.path[0] is agents-sync/, so `import gc` would shadow the stdlib module).
+# sys.path[0] is agents-sync/, so `import gc` would shadow the stdlib
+# module). The mirror equality is asserted by test_gc.py (adding a family
+# or a protected path on only one side turns that check red).
 # Without the mirror, one legacy or forged entry naming a bare family
 # container (``agents/``, ``task/`` ...) would rmtree a whole clan on
 # every node — the consumer applies lists as-is, so the shape check has
 # to live where the deletion happens.
-GC_BARE_FAMILY_ENTRIES = ("agents", "task", "bot", "topic", "run")
-GC_PROTECTED_PATHS = ("topic/dispatcher",)
+GC_BARE_FAMILY_ENTRIES = ("agents", "task", "bot", "topic", "queue", "run")
+GC_PROTECTED_PATHS = ("topic/dispatcher", "queue/dispatcher")
 # Refusal warnings are throttled: this is a resident process and one
 # surviving junk entry would otherwise warn twice per cycle forever.
 # A short-lived CLI (gc.py) reports per call instead.

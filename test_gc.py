@@ -29,7 +29,7 @@ Covers:
   the surviving lists; a forged list can never schedule a deletion by
   itself; ``add`` honors ``--delay`` (the propagation grace window).
 + hardening: a deletion must name a CONCRETE PARTICIPANT directory (bare
-  family containers ``agents/ task/ bot/ topic/ run/`` refused even with
+  family containers ``agents/ task/ bot/ topic/ queue/ run/`` refused even with
   ``--force``; legacy junk in an old list self-heals at the next
   compression, append-only intact); illegal-entry warnings are one
   summary line per read.
@@ -38,7 +38,8 @@ Covers:
   like task/topic (no --force, no audit marker); FORBIDDEN_LAYOUT_DIRS
   is empty (mechanism + audited --force bypass kept for future exempt
   clans, covered here with a hypothetical clan); PROTECTED_SYSTEM_PATHS
-  (topic/dispatcher) protection unchanged.
+  (both carrier addresses of the dispatcher position mailbox:
+  topic/dispatcher + queue/dispatcher) protection unchanged.
 
 Self-contained: every case runs in a temp workspace. Run with plain
 python3 (no pytest needed): `python3 agents-sync/test_gc.py`.
@@ -141,8 +142,37 @@ except gc.GcError:
     _bare_refused = True
 check("refuse the bare bot/ clan container (name a participant instead)",
       _bare_refused and gc.validate_path("bot/") is not None)
+try:
+    gc.sanitize_entry("queue/")
+    _bare_queue_refused = False
+except gc.GcError:
+    _bare_queue_refused = True
+check("refuse the bare queue/ clan container (same structural guard)",
+      _bare_queue_refused and gc.validate_path("queue/", force=True) is not None)
+check("accept a concrete queue/ participant subtree (clan is deletable)",
+      gc.sanitize_entry("queue/svc-x/") == "queue/svc-x/"
+      and gc.sanitize_entry("queue/svc-x/inbox/a.msg")
+      == "queue/svc-x/inbox/a.msg")
 check("accept agent/ subtree (clan dropped from exemption)",
       gc.sanitize_entry("agent/dispatcher/") == "agent/dispatcher/")
+
+print("== ssh-sync.py 的镜像副本与 gc.py 同值（手工镜像、不可 import）==")
+# ssh-sync.py 必须自带两份副本（作为脚本时 sys.path[0] = agents-sync/，
+# `import gc` 会遮蔽标准库同名模块）⇒ 副本靠本断言钉同值：只改一侧 =
+# 消费端（删除发生的那一侧）护栅与 hub 侧不一致。
+import importlib.util as _ilu
+_ss_spec = _ilu.spec_from_file_location(
+    "ssh_sync_mirror_pin", os.path.join(os.path.dirname(gc.__file__), "ssh-sync.py"))
+_ss = _ilu.module_from_spec(_ss_spec)
+_ss_spec.loader.exec_module(_ss)
+check("GC_BARE_FAMILY_ENTRIES mirror == gc.BARE_FAMILY_ENTRIES",
+      _ss.GC_BARE_FAMILY_ENTRIES == gc.BARE_FAMILY_ENTRIES,
+      "%r vs %r" % (_ss.GC_BARE_FAMILY_ENTRIES, gc.BARE_FAMILY_ENTRIES))
+check("GC_PROTECTED_PATHS mirror == gc.PROTECTED_SYSTEM_PATHS",
+      _ss.GC_PROTECTED_PATHS == gc.PROTECTED_SYSTEM_PATHS,
+      "%r vs %r" % (_ss.GC_PROTECTED_PATHS, gc.PROTECTED_SYSTEM_PATHS))
+check("mirror covers the queue/ clan container too",
+      _ss.GC_BARE_FAMILY_ENTRIES.count("queue") == 1)
 
 print("== add: list creation, cumulativity, compression ==")
 ws = mkws()
@@ -697,16 +727,20 @@ check("topic/dispatcher still refused (incl. force)",
       and gc.validate_path("topic/dispatcher/", force=True) is not None)
 
 print("== PROTECTED_SYSTEM_PATHS (dispatcher position mailbox) ==")
-# The position mailbox moved into the deletable topic family
-# (bot/dispatcher/ -> topic/dispatcher/); it is critical infrastructure,
-# so gc.py refuses it at any depth EVEN under the audited --force bypass.
-check("protected list covers the position mailbox",
-      gc.PROTECTED_SYSTEM_PATHS == ("topic/dispatcher",),
+# The position mailbox is the reaper fallback target for every task in the
+# system; both of its carrier addresses are listed, and gc.py refuses them at
+# any depth EVEN under the audited --force bypass.
+check("protected list covers both carriers of the position mailbox",
+      gc.PROTECTED_SYSTEM_PATHS == ("topic/dispatcher", "queue/dispatcher"),
       str(gc.PROTECTED_SYSTEM_PATHS))
 for bad in ("topic/dispatcher", "topic/dispatcher/",
             "topic/dispatcher/inbox/x.msg",
             "topic/dispatcher/watcher/dev-dispatcher",
-            "topic/dispatcher/topic.md"):
+            "topic/dispatcher/topic.md",
+            "queue/dispatcher", "queue/dispatcher/",
+            "queue/dispatcher/inbox/x.msg",
+            "queue/dispatcher/inbox/ack/a.msg",
+            "queue/dispatcher/spec.json"):
     check(f"protected refused (no force): {bad}",
           gc.validate_path(bad) is not None)
     check(f"protected refused EVEN with force: {bad}",
