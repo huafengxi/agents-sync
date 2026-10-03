@@ -662,10 +662,12 @@ print("== T9 consumer-side iron rules + refusal throttle ==")
 ir = mktmp("iron")
 write(ir, "gc/delete-list.000001",
       "agents/\ntask/\nrun\ntopic/dispatcher/inbox/a.msg\n"
+      "queue/dispatcher/inbox/b.msg\nqueue/dispatcher/\n"
       "gc/state.json\ntask/ok/\n")
 write(ir, "task/ok/f.txt", "listed")
 write(ir, "task/keep.txt", "KEEP")
 write(ir, "topic/dispatcher/inbox/a.msg", "mailbox")
+write(ir, "queue/dispatcher/inbox/b.msg", "mailbox")
 write(ir, "run/agentd.dev.lock", "lock")
 os.makedirs(os.path.join(ir, "agents"), exist_ok=True)
 write(ir, "agents/oops.txt", "stray")
@@ -674,8 +676,9 @@ rel = {t[0] for t in targets}
 check("INVARIANT the consumer refuses bare family containers (one such "
       "line would delete a whole clan on every node)",
       not ({"agents", "task", "run"} & rel), rel)
-check("INVARIANT the consumer refuses a PROTECTED system asset",
-      not any(r.startswith("topic/dispatcher") for r in rel), rel)
+check("INVARIANT the consumer refuses BOTH protected carriers of the position mailbox",
+      not any(r.startswith("topic/dispatcher") or r.startswith("queue/dispatcher")
+              or r == "queue" for r in rel), rel)
 check("INVARIANT the consumer refuses gc/ internals",
       not any(r == "gc/state.json" for r in rel), rel)
 check("a concrete participant entry still passes",

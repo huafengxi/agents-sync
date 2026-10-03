@@ -60,7 +60,7 @@ discipline; env/host-id maps hostname -> canonical name):
                                             -> H (single writer = the
     machine whose runner supervises this bot)
 + ``topic/<id>/**`` (shared multi-subscriber mailbox —
-  includes the position mailbox ``topic/dispatcher``).
+  includes both carrier addresses of the position mailbox).
   A topic is a NON-process participant: it has no spec.host, so only
   per-file writers are resolvable and everything else stays UNKNOWN:
   - ``inbox/*.msg``                         -> writer = envelope
@@ -402,35 +402,37 @@ class Ctx:
             return None  # agentd envelope without a provable taskId
         return self.resolve_writer(w)
 
-    def bot_host(self, name):
-        """Host of a bot/ participant (resident session or process
-        carrier), via its own spec.json — the authoritative single
-        writer statement (spec.host = the machine whose runner
-        supervises it). No spec / no usable host -> None (UNKNOWN):
-        deliberately NO hub fallback, since guessing the hub for a bot
-        hosted elsewhere would tag that bot's ORIGINALS as replica
-        there (the one mistake the group gate cannot undo)."""
-        if name in self.bot_host_cache:
-            return self.bot_host_cache[name]
-        spec = self.spec(os.path.join("bot", name))
+    def bot_host(self, name, family="bot"):
+        """Host of a process-type participant (`bot/` = resident session
+        or process carrier; `queue/` = stateless request station whose
+        mailbox and processing process share one directory), via its own
+        spec.json — the authoritative single writer statement (spec.host =
+        the machine whose runner supervises it). No spec / no usable host
+        -> None (UNKNOWN): deliberately NO hub fallback, since guessing
+        the hub for a participant hosted elsewhere would tag its ORIGINALS
+        as replica there (the one mistake the group gate cannot undo)."""
+        key = family + ":" + name
+        if key in self.bot_host_cache:
+            return self.bot_host_cache[key]
+        spec = self.spec(os.path.join(family, name))
         host = spec.get("host") or spec.get("createdByHost")
         host = self.normalize_host(host) \
             if isinstance(host, str) and host else None
         if not host:
-            self.warn_once("bot:" + name,
-                           f"bot {name!r} has no bot/{name}/spec.json "
+            self.warn_once(key,
+                           f"{family} {name!r} has no {family}/{name}/spec.json "
                            f"with a usable host; its files stay "
                            f"UNMARKED (owner UNKNOWN)")
-        self.bot_host_cache[name] = host
+        self.bot_host_cache[key] = host
         return host
 
     def subscriber_index(self):
         """{fsSafeId(participantId) -> (family, name)} over the existing
-        task/ + bot/ directories, built once. Used to resolve ack
+        task/ + bot/ + queue/ directories, built once. Used to resolve ack
         namespace segments exactly (no dot-splitting inverse)."""
         if self.sub_index is None:
             idx = {}
-            for family in ("task", "bot"):
+            for family in ("task", "bot", "queue"):
                 fdir = os.path.join(self.root, family)
                 try:
                     names = os.listdir(fdir)
@@ -456,7 +458,7 @@ class Ctx:
         ent = self.subscriber_index().get(seg)
         if ent:
             family, name = ent
-            host = self.bot_host(name) if family == "bot" \
+            host = self.bot_host(name, family) if family in ("bot", "queue") \
                 else self.task_host(name)
         if not host:
             self.warn_once("sub:" + seg,
@@ -593,10 +595,10 @@ class Ctx:
             family, _, wname = name.partition("/")
             if family == "task":
                 return self.task_host(wname)
-            if family == "bot":
-                return self.bot_host(wname)
+            if family in ("bot", "queue"):
+                return self.bot_host(wname, family)
             # topic/<id> as a writer = a shared/position identity (e.g.
-            # the dispatcher writing as topic/dispatcher): no host of
+            # a shared identity such as a topic moderator writing as topic/<id>): no host of
             # its own -> don't guess.
             return None
         if name in HUB_WRITERS:
@@ -645,14 +647,17 @@ def classify_participant(rel, name, sub_parts, ctx):
     return host, "participant-session"
 
 
-def classify_bot(rel, name, sub_parts, ctx):
-    """Files under bot/<name>/ (resident session / process carrier):
-    single writer = the machine whose runner supervises it (spec.host),
-    except inbox envelopes (any machine may send), the registry-side
-    files and the release record. Mirrors the task-dir rules."""
-    spec = ctx.spec(os.path.join("bot", name))
+def classify_bot(rel, name, sub_parts, ctx, family="bot"):
+    """Files under bot/<name>/ (resident session / process carrier) or
+    queue/<name>/ (stateless request station: mailbox + process in one
+    directory — same ownership rules, since both are process-type
+    participants with spec.host): single writer = the machine whose runner
+    supervises it (spec.host), except inbox envelopes (any machine may
+    send), the registry-side files and the release record. Mirrors the
+    task-dir rules."""
+    spec = ctx.spec(os.path.join(family, name))
     sub = os.sep.join(sub_parts)
-    h_host = ctx.bot_host(name)      # None (+ one-shot warning) w/o spec
+    h_host = ctx.bot_host(name, family)   # None (+ one-shot warning) w/o spec
     c_host = spec.get("createdByHost") or h_host
     if sub == "enable.json":
         return classify_enable(rel, spec, ctx)
@@ -677,7 +682,7 @@ def classify_bot(rel, name, sub_parts, ctx):
 
 
 def classify_topic(rel, tid, sub_parts, ctx):
-    """Files under topic/<id>/ — a shared multi-subscriber mailbox, including the position mailbox topic/dispatcher. A topic is a NON-process participant with no spec.host, so
+    """Files under topic/<id>/ — a shared multi-subscriber mailbox. A topic is a NON-process participant with no spec.host, so
     only per-file writers are resolvable; everything else stays UNKNOWN
     (conservative: an unmarked file is never overwritten by pull)."""
 
@@ -773,6 +778,11 @@ def classify(rel, ctx):
         if len(parts) >= 3:
             return classify_bot(rel, parts[1], parts[2:], ctx)
         return None, "bot-other"
+    if top == "queue":
+        # process-type participant (mailbox + process archive in one dir)
+        if len(parts) >= 3:
+            return classify_bot(rel, parts[1], parts[2:], ctx, family="queue")
+        return None, "queue-other"
     if top == "topic":
         if len(parts) >= 3:
             return classify_topic(rel, parts[1], parts[2:], ctx)

@@ -4,7 +4,7 @@
 
 Covers:
 + topic/ clan (shared multi-subscriber mailbox — including
-  the position mailbox topic/dispatcher): envelopes via
+  both protected carriers of the position mailbox): envelopes via
   ``from``, namespaced acks via the SUBSCRIBER's host, everything else
   UNKNOWN (a topic has no spec.host).
 + namespaced ack ownership (protocol §4.6 two-state acks, t-3yp9③):
@@ -517,6 +517,46 @@ else:
     shutil.rmtree(ws2)
 
 shutil.rmtree(ws)
+
+# =====================================================================
+print("== 12. queue/ family (stateless request station: mailbox + process in one dir) ==")
+# Ownership mirrors bot/ (both are process-type participants with spec.host):
+# the supervising machine owns the process archive + flat acks; envelopes
+# belong to their writer; registry-side files belong to createdByHost.
+w(f"{ad}/queue/notify-user/spec.json", spec("dev", "dev"))
+w(f"{ad}/queue/work-lead/spec.json", spec("mac", "dev"))
+w(f"{ad}/queue/work-lead/pid.json", '{"gen": 1, "final": false}')
+w(f"{ad}/queue/work-lead/enable.json", "{}")
+w(f"{ad}/task/tq1/spec.json", spec("dev", "dev"))   # 本节自建的写者夹具（前序节会清 task/ 存量）
+w(f"{ad}/queue/work-lead/inbox/m-q.msg", msg("m-q", "task/tq1"))
+w(f"{ad}/queue/work-lead/inbox/ack/m-q", ack("m-q"))
+w(f"{ad}/queue/work-lead/inbox/ack/queue.notify-user/m-x", ack("m-x", "queue/notify-user"))
+ctx = ctx_of(ws, ad)          # rebuild: the fixtures above joined the tree
+check("queue process archive -> its spec.host (supervising machine)",
+      owner("queue/work-lead/pid.json", ctx) == "mac",
+      owner("queue/work-lead/pid.json", ctx))
+check("queue registry-side file -> createdByHost",
+      owner("queue/work-lead/spec.json", ctx) == "dev"
+      and klass("queue/work-lead/spec.json", ctx) == "bot-registry",
+      (owner("queue/work-lead/spec.json", ctx), klass("queue/work-lead/spec.json", ctx)))
+check("queue inbox envelope -> the writer's host (any machine may send)",
+      owner("queue/work-lead/inbox/m-q.msg", ctx) == "dev"
+      and klass("queue/work-lead/inbox/m-q.msg", ctx) == "bot-inbox-msg",
+      (owner("queue/work-lead/inbox/m-q.msg", ctx), klass("queue/work-lead/inbox/m-q.msg", ctx)))
+check("queue flat ack (single-consumer mailbox) -> the participant's host",
+      owner("queue/work-lead/inbox/ack/m-q", ctx) == "mac"
+      and klass("queue/work-lead/inbox/ack/m-q", ctx) == "ack",
+      (owner("queue/work-lead/inbox/ack/m-q", ctx), klass("queue/work-leaf/inbox/ack/m-q", ctx)))
+check("queue ack namespace segment resolves via the subscriber index (queue/ included)",
+      owner("queue/work-lead/inbox/ack/queue.notify-user/m-x", ctx) == "dev",
+      owner("queue/work-lead/inbox/ack/queue.notify-user/m-x", ctx))
+check("queue path-style writer id resolves to its spec.host",
+      ctx.resolve_writer("queue/notify-user") == "dev",
+      ctx.resolve_writer("queue/notify-user"))
+check("bare queue/ clan container -> UNKNOWN (names no participant)",
+      rt.classify("queue", ctx) == (None, "top-level-other")
+      or rt.classify("queue", ctx)[0] is None,
+      rt.classify("queue", ctx))
 
 print()
 print(f"{PASS} passed, {len(FAIL)} failed")
