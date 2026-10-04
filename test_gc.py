@@ -720,16 +720,18 @@ check("consumer applies the bot/ entry (list is trusted)", n >= 1
       and not os.path.exists(os.path.join(ad, "bot/dispatcher")),
       f"n={n}")
 shutil.rmtree(ws)
-# 3. protected system asset regression: topic/dispatcher still refused
-#    EVEN with --force (full coverage in the PROTECTED_SYSTEM_PATHS section below)
-check("topic/dispatcher still refused (incl. force)",
+# 3. protected system asset regression: topic/dispatcher refused by
+#    default, ACCEPTED under the audited --force bypass (full coverage
+#    in the PROTECTED_SYSTEM_PATHS section below)
+check("topic/dispatcher refused by default, accepted under force",
       gc.validate_path("topic/dispatcher/") is not None
-      and gc.validate_path("topic/dispatcher/", force=True) is not None)
+      and gc.validate_path("topic/dispatcher/", force=True) is None)
 
 print("== PROTECTED_SYSTEM_PATHS (dispatcher position mailbox) ==")
 # The position mailbox is the reaper fallback target for every task in the
-# system; both of its carrier addresses are listed, and gc.py refuses them at
-# any depth EVEN under the audited --force bypass.
+# system; both of its carrier addresses are listed. Semantics = default-refusal
+# class (2026-10-04 user decision): refused at any depth WITHOUT the audit
+# marker; the audited --force bypass (marker-carrying entries) lifts the class.
 check("protected list covers both carriers of the position mailbox",
       gc.PROTECTED_SYSTEM_PATHS == ("topic/dispatcher", "queue/dispatcher"),
       str(gc.PROTECTED_SYSTEM_PATHS))
@@ -743,18 +745,20 @@ for bad in ("topic/dispatcher", "topic/dispatcher/",
             "queue/dispatcher/spec.json"):
     check(f"protected refused (no force): {bad}",
           gc.validate_path(bad) is not None)
-    check(f"protected refused EVEN with force: {bad}",
-          gc.validate_path(bad, force=True) is not None)
-    check(f"protected refused via validate_entry+marker: {bad}",
+    check(f"protected ACCEPTED with force: {bad}",
+          gc.validate_path(bad, force=True) is None)
+    check(f"protected ACCEPTED via validate_entry+marker: {bad}",
           gc.validate_entry(
               bad + " #FORCED:by=u,host=h,ts=2026-09-05T00:00:00Z")
-          is not None)
+          is None)
+    check(f"protected refused via validate_entry WITHOUT marker: {bad}",
+          gc.validate_entry(bad) is not None)
     try:
         gc.sanitize_entry(bad, force=True)
-        check(f"sanitize_entry(force) refuses protected: {bad}", False,
-              "was accepted")
-    except gc.GcError:
-        check(f"sanitize_entry(force) refuses protected: {bad}", True)
+        check(f"sanitize_entry(force) accepts protected: {bad}", True)
+    except gc.GcError as why:
+        check(f"sanitize_entry(force) accepts protected: {bad}", False,
+              str(why))
 # siblings stay deletable (topic family is ephemeral by design)
 for good in ("topic/mtg-x/", "topic/mtg-x/inbox/a.msg", "task/abc123/"):
     check(f"non-protected topic/task still deletable: {good}",
@@ -766,19 +770,31 @@ ws = mkws()
 ad = os.path.join(ws, "agents")
 os.makedirs(os.path.join(ad, "topic/dispatcher/inbox"))
 touch(ad, "topic/dispatcher/inbox/a.msg", "{}")
-rc = gc.cmd_add(ws, ad, ["topic/dispatcher/"], delay=60, wait=False,
-                force=True, forced_by="tester")
-check("cmd_add --force refuses the protected system asset", rc == 1,
-      f"rc={rc}")
-check("no delete-list written for the refused path",
-      gc.existing_lists(ad) == [])
 rc = gc.cmd_add(ws, ad, ["topic/dispatcher/inbox/a.msg"], delay=60,
                 wait=False)
 check("cmd_add (no force) refuses a protected file entry", rc == 1,
       f"rc={rc}")
-check("still no delete-list", gc.existing_lists(ad) == [])
+check("no delete-list written for the refused path",
+      gc.existing_lists(ad) == [])
 check("protected tree still on disk",
       os.path.exists(os.path.join(ad, "topic/dispatcher/inbox/a.msg")))
+rc = gc.cmd_add(ws, ad, ["topic/dispatcher/"], delay=0, wait=False,
+                force=True, forced_by="tester")
+check("cmd_add --force ACCEPTS the protected system asset (audited)",
+      rc == 0, f"rc={rc}")
+lists = gc.existing_lists(ad)
+marked = any("topic/dispatcher/ #FORCED:by=tester" in ln
+             for lp in lists
+             for ln in open(os.path.join(ad, lp),
+                            encoding="utf-8").read().splitlines())
+check("the forced entry carries the audit marker in the ledger",
+      bool(lists) and marked, str(lists))
+deleted, missed = gc.reap(ws, ad, verbose=False)
+check("reap deletes the forced protected tree on the hub",
+      any(d.startswith("topic/dispatcher/") for d in deleted)
+      and not missed
+      and not os.path.exists(os.path.join(ad, "topic/dispatcher")),
+      f"deleted={deleted} missed={missed}")
 shutil.rmtree(ws)
 
 print("== cross-machine idempotency (hub + 4 nodes, consumer side) ==")
@@ -874,13 +890,19 @@ check("T3-2 the authorized surface still deletes a concrete participant",
       gc.sanitize_entry("task/abc123/") == "task/abc123/"
       and gc.sanitize_entry("bot/foo/") == "bot/foo/"
       and gc.sanitize_entry("topic/mtg-1/") == "topic/mtg-1/")
-# the pre-existing refusal surface is unchanged
+# the pre-existing refusal surface is unchanged (SHAPE class — never lifted
+# by --force; the protected class is covered in its own section below)
 for bad in ("gc/", "gc/evil", ".", "/abs/path", "task/../bot/", "wild*card",
-            "q[1]", "", "  ", "topic/dispatcher/",
-            "topic/dispatcher/inbox/x.msg"):
+            "q[1]", "", "  "):
     check(f"T3-5 still refused: {bad!r}", gc.validate_path(bad) is not None)
     check(f"T3-5 still refused with --force: {bad!r}",
           gc.validate_path(bad, force=True) is not None)
+# protected class: refused by default, lifted by the audited force bypass
+for bad in ("topic/dispatcher/", "topic/dispatcher/inbox/x.msg"):
+    check(f"T3-5 protected refused without force: {bad!r}",
+          gc.validate_path(bad) is not None)
+    check(f"T3-5 protected ACCEPTED with --force: {bad!r}",
+          gc.validate_path(bad, force=True) is None)
 
 print("== a bare family container cannot be added via the CLI ==")
 ws = mkws()

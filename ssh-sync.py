@@ -326,9 +326,13 @@ GC_DIR_NAME = "gc"
 GC_LIST_PREFIX = "delete-list."
 # Audited force bypass (agents-sync/gc.py add --force): exempt
 # entries carry an inline audit marker '<path> #FORCED:<audit>'. The
-# consumer applies the PATH part as-is and ignores the marker (the
-# marker is hub-side audit, not a consumer gate — same trust model as
-# the rest of the list). Kept verbatim in sync with gc.py FORCE_MARK.
+# marker is the CONSUMER-SIDE GATE for the protected-asset class: an
+# unmarked PROTECTED entry is refused at consumption (junk-or-forged),
+# a marked one carries the hub-side user authorization and is applied
+# (refusing it here would leave node copies that push back and
+# resurrect what the hub deleted). Shape refusals (bare family
+# containers, gc/ internals, malformed paths) are never lifted by the
+# marker. Kept verbatim in sync with gc.py FORCE_MARK.
 GC_FORCE_MARK = " #FORCED:"
 # Iron-rule shapes refused at CONSUMPTION too, not only at generation.
 # ``agents-sync/gc.py``'s ``validate_path``/``BARE_FAMILY_ENTRIES``/
@@ -358,17 +362,21 @@ _gc_refuse_reported = [0.0, 0]     # [last report ts, suppressed since then]
 
 def read_gc_lists(local_dir):
     """Union of entries across all <local>/gc/delete-list.* files, in
-    first-seen order (set semantics; duplicates absorbed). Unreadable
-    files are skipped best-effort (lists are written atomically by
-    agents-sync/gc.py; the next cycle retries)."""
+    first-seen order (set semantics; duplicates absorbed). Each item
+    is a (entry, forced) pair: forced = the line carried the
+    GC_FORCE_MARK audit marker; across duplicate listings of the same
+    path the marker wins (forced supersedes unmarked — same semantics
+    as the hub-side list compression). Unreadable files are skipped
+    best-effort (lists are written atomically by agents-sync/gc.py;
+    the next cycle retries)."""
     gcdir = os.path.join(local_dir, GC_DIR_NAME)
     try:
         names = sorted(f for f in os.listdir(gcdir)
                        if f.startswith(GC_LIST_PREFIX))
     except OSError:
         return []
-    seen = set()
-    out = []
+    order = []
+    forced = {}
     for fn in names:
         try:
             with open(os.path.join(gcdir, fn), encoding="utf-8") as fh:
@@ -376,37 +384,43 @@ def read_gc_lists(local_dir):
                     e = line.strip()
                     if not e or e.startswith("#"):
                         continue
-                    if GC_FORCE_MARK in e:
+                    mark = GC_FORCE_MARK in e
+                    if mark:
                         e = e.split(GC_FORCE_MARK, 1)[0]
-                    if e not in seen:
-                        seen.add(e)
-                        out.append(e)
+                    if e not in forced:
+                        forced[e] = mark
+                        order.append(e)
+                    elif mark:
+                        forced[e] = True
         except OSError:
             continue
-    return out
+    return [(e, forced[e]) for e in order]
 
 
-def _gc_shape_refused(raw, is_dir):
+def _gc_shape_refused(raw, is_dir, forced=False):
     """Why a delete-list entry is refused at consumption, or None.
 
     Structural malformations (absolute path, ``..`` element, glob
     metacharacters) plus the hub-side iron-rule shapes: a bare family
     container names no participant (one such line would delete a whole
     clan, and because the lists are cumulative and append-only it would
-    sit in the ledger forever), ``gc/`` internals are gc.py's own tree
-    (the only legal entry is a compression entry
-    ``gc/delete-list.NNNNNN``), and a PROTECTED system asset is refused
-    even on the hub's audited bypass path."""
+    sit in the ledger forever), and ``gc/`` internals are gc.py's own
+    tree (the only legal entry is a compression entry
+    ``gc/delete-list.NNNNNN``). Shape refusals are NEVER lifted by the
+    audit marker. A PROTECTED system asset is refused only WITHOUT the
+    FORCE_MARK marker: the marker (written by the hub's audited
+    ``gc.py add --force``) is the consumer-side gate for that class."""
     parts = raw.split("/")
     if (not raw or raw.startswith("/")
             or any(p in ("", "..") for p in parts)):
         return "malformed path"
     if len(parts) == 1 and parts[0] in GC_BARE_FAMILY_ENTRIES:
         return "bare family container (names no participant)"
-    for prot in GC_PROTECTED_PATHS:
-        pp = prot.strip("/").split("/")
-        if parts[:len(pp)] == pp:
-            return "protected system asset"
+    if not forced:
+        for prot in GC_PROTECTED_PATHS:
+            pp = prot.strip("/").split("/")
+            if parts[:len(pp)] == pp:
+                return "protected system asset (no #FORCED: audit marker)"
     if parts[0] == GC_DIR_NAME and not (
             len(parts) == 2 and parts[1].startswith(GC_LIST_PREFIX)
             and not is_dir):
@@ -438,29 +452,28 @@ def gc_exclude_and_targets(local_dir):
     """Split delete-list entries into (exclude_patterns, targets,
     refused). exclude_patterns are anchored rsync exclude patterns
     ('/rel' for files, '/rel/' for directory subtrees); targets are
-    (relpath, is_dir) for local deletion. THE LIST IS TRUSTED: iron
-    rules (bot/ immortality) are
-    enforced hub-side ONLY by agents-sync/gc.py validate_entry (single
-    point of generation and validation user
-    decision removed the consumer-side duplicate). Entries are refused
-    ONLY when structurally malformed (absolute paths, '..' elements,
-    glob metacharacters — same defense as the pull protect list, these
-    would corrupt rsync pattern semantics) or when they touch ``gc/``
-    internals (the sync layer's own gc/ tree is self-managed; the only
-    legal gc/ entry is a compression entry
-    ``gc/delete-list.NNNNNN``).
-
-    Residual gap, informed-accepted: a list planted on this node that names a
-    hub-side PROTECTED path is applied locally (no PROTECTED filter here).
-    agents/ deletions do not propagate, so the loss is machine-local and
-    recoverable by pulling from the hub. Adding a consumer-side filter was
-    ruled out; re-open triggers =
-    the workspace decision log."""
+    (relpath, is_dir) for local deletion. THE LIST IS TRUSTED for the
+    permission classes (cleanup-exemption iron rules are enforced
+    hub-side ONLY by agents-sync/gc.py validate_entry — single point of
+    generation and validation). Entries are refused ONLY when
+    structurally malformed (absolute paths, '..' elements, glob
+    metacharacters — same defense as the pull protect list, these would
+    corrupt rsync pattern semantics), when they name a bare family
+    container (one such line would rmtree a whole clan on every node),
+    when they touch ``gc/`` internals (the sync layer's own gc/ tree is
+    self-managed; the only legal gc/ entry is a compression entry
+    ``gc/delete-list.NNNNNN``), or when they name a PROTECTED system
+    asset WITHOUT the '#FORCED:' audit marker — the marker is the
+    consumer-side gate for the protected class (an unmarked protected
+    entry is junk-or-forged; a marked one carries the hub-side user
+    authorization and MUST be applied here, otherwise the node copies
+    survive and push back, resurrecting what the hub deleted)."""
     excludes, targets, refused = [], [], []
-    for e in read_gc_lists(local_dir):
+    for e, forced in read_gc_lists(local_dir):
         raw = e.rstrip("/")
         is_dir = e.endswith("/")
-        if any(c in GLOB_UNSAFE for c in e) or _gc_shape_refused(raw, is_dir):
+        if any(c in GLOB_UNSAFE for c in e) \
+                or _gc_shape_refused(raw, is_dir, forced):
             refused.append(e)
             continue
         if is_dir:

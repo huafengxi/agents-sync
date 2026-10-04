@@ -88,16 +88,22 @@ redundant layer):
   deletable — topic dirs are ephemeral collaboration records;
 
   EXCEPTION — the AUDITED FORCE BYPASS (2026-08-31 user
-  decision): ``add --force`` accepts cleanup-exempt entries, but every
-  such entry is stored WITH AN INLINE AUDIT MARKER
+  decision; extended 2026-10-04 to the protected-asset class — an
+  explicit user authorization is terminal, no permission-class
+  restriction survives it): ``add --force`` accepts cleanup-exempt
+  (FORBIDDEN_LAYOUT_DIRS) AND protected (PROTECTED_SYSTEM_PATHS)
+  entries, but every such entry is stored WITH AN INLINE AUDIT MARKER
   ``<path> #FORCED:by=<who>[,task=<id>],host=<host>,ts=<UTC>`` so the
   ledger answers "who forced what when" at a glance. The marker lifts
-  ONLY the exemption rule above — gc/ self-tree, absolute paths,
-  '..' traversal and glob metacharacters stay refused under --force.
-  Read/compression and reap pass marked entries through (a legitimate
-  forced entry must survive list compression; the consumer applies the
-  PATH part as-is and ignores the marker — marking is hub-side audit,
-  not a consumer-side gate). Only ``add`` ever creates markers.
+  the PERMISSION classes only — SHAPE guards stay refused under
+  --force (bare family containers, gc/ self-tree, absolute paths,
+  '..' traversal, glob metacharacters: entry validity, not
+  permission). Read/compression and reap pass marked entries through
+  (a legitimate forced entry must survive list compression). On the
+  consumer side the marker IS the gate for the protected class: an
+  unmarked protected entry is refused, a marked one is applied —
+  refusing it there would leave node copies that push back and
+  resurrect what the hub deleted. Only ``add`` ever creates markers.
   Tradeoff, documented: a forged list could plant a forged marker and
   ride compression — accepted because (a) planting a list on a node
   that gets pushed to the hub already means a compromised node, and
@@ -183,8 +189,9 @@ DEFAULT_DELAY = 300.0  # seconds; see module docstring for rationale
 # containers, queue = stateless request stations).
 # The tuple stays as the mechanism for listing any
 # future cleanup-exempt clan (with the audited --force bypass below).
-# Critical single assets stay protected via PROTECTED_SYSTEM_PATHS.
-# HUB-SIDE ONLY defense.
+# This exemption class is enforced HUB-SIDE ONLY (the consumer trusts
+# the list for it). Critical single assets stay protected via
+# PROTECTED_SYSTEM_PATHS — that class IS mirrored on the consumer.
 FORBIDDEN_LAYOUT_DIRS = ()
 
 # System-asset preserve list: the dispatcher position mailbox — the
@@ -193,9 +200,13 @@ FORBIDDEN_LAYOUT_DIRS = ()
 # entry). Both of its carrier addresses are listed (the same mailbox
 # has a landing point in two families): losing either loses task
 # notifications, and the fallback face must be writable
-# unconditionally. Refused at any depth EVEN with the audited --force
-# bypass — un-protecting means editing this tuple (a reviewed code
-# change), not passing a CLI flag. Paths are relative to agents/,
+# unconditionally. Semantics = DEFAULT-REFUSAL class (accident guard):
+# refused at any depth without the marker; the audited --force bypass
+# lifts it (2026-10-04 user decision). Force-deleting a tombstone
+# carrier's precondition belongs to the authorizer: no frozen node may
+# still run pre-migration code (its send-side ensure-inbox would
+# resurrect the mailbox and the mesh would push it back).
+# Paths are relative to agents/,
 # prefix-matched on path elements ("topic/dispatcher" also protects
 # "topic/dispatcher/inbox/x.msg").
 # Cross-reference: the agentd side keeps the same list as
@@ -279,10 +290,10 @@ def validate_entry(e):
     entry (plain file entry ``gc/delete-list.NNNNNN``).
 
     An entry carrying the FORCE_MARK audit marker (``add --force``
-    output) is exempted from the cleanup-exemption iron
-    rule (FORBIDDEN_LAYOUT_DIRS) — every other check applies
-    unchanged, and the audit string must be non-empty and
-    alphabet-safe."""
+    output) is exempted from the PERMISSION classes
+    (FORBIDDEN_LAYOUT_DIRS and PROTECTED_SYSTEM_PATHS) — every shape
+    check applies unchanged, and the audit string must be non-empty
+    and alphabet-safe."""
     e, mark = split_force(e)
     if mark is not None and not _FORCE_AUDIT_SAFE.match(mark):
         return "malformed or empty force-audit marker"
@@ -291,7 +302,8 @@ def validate_entry(e):
 
 def validate_path(e, force=False):
     """Core structural validation of one entry PATH (no marker).
-    ``force=True`` lifts ONLY the cleanup-exemption iron rule."""
+    ``force=True`` lifts the PERMISSION classes (FORBIDDEN_LAYOUT_DIRS
+    and PROTECTED_SYSTEM_PATHS); shape guards stay."""
     if not e or e != e.strip():
         return "empty or unstripped entry"
     if e.startswith("/"):
@@ -311,13 +323,13 @@ def validate_path(e, force=False):
                 "directory (task/<id>/, bot/<name>/, topic/<id>/, queue/<name>/). "
                 "Refused even with --force; un-refuse = edit "
                 "BARE_FAMILY_ENTRIES in agents-sync/gc.py")
-    for prot in PROTECTED_SYSTEM_PATHS:
-        pp = prot.strip("/").split("/")
-        if parts[:len(pp)] == pp:
-            return (f"{prot}/ is a PROTECTED system asset (dispatcher "
-                    "position mailbox) — deletion refused "
-                    "even with --force; un-protect = edit "
-                    "PROTECTED_SYSTEM_PATHS in agents-sync/gc.py")
+    if not force:
+        for prot in PROTECTED_SYSTEM_PATHS:
+            pp = prot.strip("/").split("/")
+            if parts[:len(pp)] == pp:
+                return (f"{prot}/ is a PROTECTED system asset (dispatcher "
+                        "position mailbox) — deletion refused by default; "
+                        "audited bypass: add --force")
     top = parts[0]
     if top in FORBIDDEN_LAYOUT_DIRS and not force:
         return (f"the {top}/ layout subtree is NEVER deletable "
@@ -336,9 +348,10 @@ def sanitize_entry(raw, agents_dir=None, force=False):
     string (directory entries carry exactly one trailing slash).
     Raises GcError with a human-readable reason on any violation.
 
-    ``force=True`` (``add --force``) lifts ONLY the
-    cleanup-exemption iron rule; every other check stays. The caller
-    attaches the FORCE_MARK audit marker afterwards.
+    ``force=True`` (``add --force``) lifts the PERMISSION classes
+    (FORBIDDEN_LAYOUT_DIRS and PROTECTED_SYSTEM_PATHS); every shape
+    check stays. The caller attaches the FORCE_MARK audit marker
+    afterwards.
 
     With ``agents_dir`` given (the production CLI path), an unslashed
     path that points at an EXISTING directory is auto-normalized to a
@@ -707,10 +720,11 @@ def cmd_add(ws, agents_dir, paths, delay, wait, force=False,
     # Keep the schedule honest first: delete whatever is already due.
     reap(ws, agents_dir, verbose=True)
 
-    # --force: user-authorized deletion of cleanup-exempt
-    # areas. Only the exemption iron rule is lifted; entries that
-    # needed the bypass carry the FORCE_MARK audit marker in the list
-    # (who/when/where forced what). Regular entries are never marked.
+    # --force: user-authorized deletion of exempt areas (the
+    # PERMISSION classes: FORBIDDEN_LAYOUT_DIRS and
+    # PROTECTED_SYSTEM_PATHS). Entries that needed the bypass carry
+    # the FORCE_MARK audit marker in the list (who/when/where forced
+    # what). Regular entries are never marked.
     mark = make_force_mark(forced_by) if force else None
 
     entries_new = []
@@ -869,16 +883,18 @@ def main(argv=None):
                     help="block until due and perform the hub-local "
                          "deletion before returning")
     sp.add_argument("--force", action="store_true",
-                    help="AUDITED BYPASS (2026-08-31 "
-                         "user decision): accept cleanup-exempt paths "
-                         "(FORBIDDEN_LAYOUT_DIRS; currently empty — "
-                         "bot/ immortality removed 2026-09-06). "
-                         "Every exempt entry is recorded with "
-                         "an inline '#FORCED:' audit marker (who/"
-                         "when/where). Lifts ONLY the exemption iron "
-                         "rules — all other validation unchanged. Use "
-                         "only for USER-AUTHORIZED exempt-area "
-                         "deletions.")
+                    help="AUDITED BYPASS (2026-08-31 user decision; "
+                         "extended 2026-10-04 to protected assets): "
+                         "accept cleanup-exempt paths "
+                         "(FORBIDDEN_LAYOUT_DIRS) AND protected system "
+                         "assets (PROTECTED_SYSTEM_PATHS). Every such "
+                         "entry is recorded with an inline '#FORCED:' "
+                         "audit marker (who/when/where) — the marker "
+                         "is also the consumer-side gate for the "
+                         "protected class. Shape validation unchanged "
+                         "(bare family containers, gc/ self-tree, "
+                         "absolute/'..'/glob stay refused). Use only "
+                         "for USER-AUTHORIZED deletions.")
     sp.add_argument("--force-by", default=None, metavar="NAME",
                     help="who authorized the forced deletion "
                          "(default: $USER); stored in the audit "

@@ -664,6 +664,8 @@ write(ir, "gc/delete-list.000001",
       "agents/\ntask/\nrun\ntopic/dispatcher/inbox/a.msg\n"
       "queue/dispatcher/inbox/b.msg\nqueue/dispatcher/\n"
       "gc/state.json\ntask/ok/\n")
+write(ir, "gc/delete-list.000002",
+      "topic/dispatcher/ #FORCED:by=t,host=h,ts=2026-10-04T00:00:00Z\n")
 write(ir, "task/ok/f.txt", "listed")
 write(ir, "task/keep.txt", "KEEP")
 write(ir, "topic/dispatcher/inbox/a.msg", "mailbox")
@@ -676,19 +678,26 @@ rel = {t[0] for t in targets}
 check("INVARIANT the consumer refuses bare family containers (one such "
       "line would delete a whole clan on every node)",
       not ({"agents", "task", "run"} & rel), rel)
-check("INVARIANT the consumer refuses BOTH protected carriers of the position mailbox",
-      not any(r.startswith("topic/dispatcher") or r.startswith("queue/dispatcher")
-              or r == "queue" for r in rel), rel)
+check("INVARIANT the consumer refuses UNMARKED protected entries "
+      "(both carriers of the position mailbox)",
+      not any(r.startswith("queue/dispatcher") for r in rel)
+      and "topic/dispatcher/inbox/a.msg" not in rel, rel)
+check("INVARIANT the consumer APPLIES a #FORCED:-marked protected entry "
+      "(the hub's audited bypass is the consumer-side gate; refusing it "
+      "here would let node copies push back and resurrect it)",
+      "topic/dispatcher" in rel and "/topic/dispatcher/" in ex, (rel, ex))
 check("INVARIANT the consumer refuses gc/ internals",
       not any(r == "gc/state.json" for r in rel), rel)
 check("a concrete participant entry still passes",
       "task/ok" in rel and "/task/ok/" in ex, (rel, ex))
 ss._gc_refuse_reported[:] = [0.0, 0]
 n = ss.apply_gc_deletions(ir)
-check("the refused shapes are NOT deleted, the listed participant is",
-      n == 1 and os.path.exists(os.path.join(ir, "agents/oops.txt"))
+check("refused shapes are NOT deleted; the listed participant AND the "
+      "forced protected tree are",
+      n == 2 and os.path.exists(os.path.join(ir, "agents/oops.txt"))
       and os.path.exists(os.path.join(ir, "run/agentd.dev.lock"))
-      and os.path.exists(os.path.join(ir, "topic/dispatcher/inbox/a.msg"))
+      and os.path.exists(os.path.join(ir, "queue/dispatcher/inbox/b.msg"))
+      and not os.path.exists(os.path.join(ir, "topic/dispatcher"))
       and os.path.exists(os.path.join(ir, "task/keep.txt"))
       and not os.path.exists(os.path.join(ir, "task/ok")), n)
 
