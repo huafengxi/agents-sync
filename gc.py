@@ -663,8 +663,11 @@ def reap(ws, agents_dir, now=None, verbose=True):
             continue
         rel = entry_to_relpath(entry)
         p = os.path.join(agents_dir, rel)
+        # is_dir is judged on the marker-stripped PATH part: a forced dir
+        # entry carries its audit marker AFTER the trailing slash, so
+        # entry.endswith("/") would misroute it into the file branch.
         try:
-            if entry.endswith("/"):
+            if split_force(entry)[0].endswith("/"):
                 if os.path.islink(p):
                     # Symlink: consume the link itself (the target
                     # survives); the entry converges (review S2).
