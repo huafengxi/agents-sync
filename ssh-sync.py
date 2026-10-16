@@ -9,10 +9,8 @@ and asks you to install it (no degraded fallback). One-shot
 overwrite arbitration at all) and accept ``--delete``. The resident
 ``watch`` link NEVER deletes and refuses the flag at the argparse layer.
 
-SSH config: hosts come from ``<workspace>/env/.live/ssh-hosts``
-(materialized by ``make env.materialize`` from ``env/ssh-hosts``);
-``SSH_SYNC_CONFIG`` overrides the path — node machines that do not carry
-the workspace secrets point it at ``~/.ssh/config``. Every ssh/rsync call
+SSH config: ``SSH_SYNC_CONFIG`` supplies the caller's config path;
+the conventional default is ``~/.ssh/config``. Every ssh/rsync call
 passes ``-F <config>``, and a connectivity preflight
 (``ssh -o BatchMode=yes -o ConnectTimeout=8 <host> true``) runs before
 any transfer.
@@ -225,9 +223,8 @@ try:
 except ImportError:
     HAVE_WATCHDOG = False
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from platform_paths import workspace_root
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from delete_contract import (GC_DIR_NAME, LIST_PREFIX as GC_LIST_PREFIX,
                              FORCE_MARK as GC_FORCE_MARK, GLOB_UNSAFE,
                              BARE_FAMILY_ENTRIES as GC_BARE_FAMILY_ENTRIES,
@@ -235,14 +232,12 @@ from delete_contract import (GC_DIR_NAME, LIST_PREFIX as GC_LIST_PREFIX,
                              split_force, validate_path as validate_delete_path)
 
 _WORKSPACE = workspace_root(__file__)
-DEFAULT_SSH_CONFIG = os.path.join(_WORKSPACE, "env", ".live", "ssh-hosts")
+DEFAULT_SSH_CONFIG = os.path.expanduser("~/.ssh/config")
 
-# Defaults for the optional `watch` positional args: the cross-machine
-# agents/ sync link (star topology, hub = the neutral directory
-# dev:/data/shared/agents; each machine runs its own link — see
-# the service registry's `agents-sync` profile and agents-sync/loop.sh).
+# Each node owns one star link to a caller-supplied neutral hub directory.
+# No deployment endpoint or host list is embedded in the source.
 DEFAULT_LOCAL_DIR = os.path.join(_WORKSPACE, "agents")
-DEFAULT_REMOTE = "dev:/data/shared/agents"
+DEFAULT_REMOTE = os.environ.get("AGENTS_SYNC_REMOTE")
 
 # ServerAlive*: a half-dead link (the peer vanished without sending FIN —
 # laptop Wi-Fi/sleep is the common case) blocks reads and writes forever
@@ -1494,8 +1489,8 @@ def main():
         description="Sync directories between local and a remote host "
                     "over rsync/ssh.",
         epilog="Remote specs look like <host>:<remote_dir>; hosts come "
-               "from the ssh config (default: <workspace>/env/.live/"
-               "ssh-hosts, override with SSH_SYNC_CONFIG). Positional "
+               "from the ssh config (default: ~/.ssh/config, "
+               "override with SSH_SYNC_CONFIG). Positional "
                "push/pull/both REQUIRE explicit local_dir and "
                "host:remote_dir (the agents/ default link is owned by "
                "`watch` (resident agents/ link), so one-shot transfers must "
@@ -1584,6 +1579,8 @@ def main():
                                f"{DEFAULT_STATS_EVERY:.0f})")
 
     args = p.parse_args()
+    if not args.remote:
+        p.error("remote required: pass host:remote_dir or set AGENTS_SYNC_REMOTE for watch")
 
     if shutil.which("rsync") is None:
         die("rsync not found in PATH; please install rsync first "

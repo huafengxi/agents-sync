@@ -1,41 +1,48 @@
-"""Discover workspace roots without depending on cwd or the checkout name."""
+"""Local helper contract: independent layouts, overrides and real entry identity."""
 import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from platform_paths import MODULES, workspace_root
+from platform_paths import workspace_root
 
 
 class LayoutTests(unittest.TestCase):
     def setUp(self):
-        temp = tempfile.TemporaryDirectory()
+        temp = tempfile.TemporaryDirectory(prefix="local roots '")
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name).resolve()
-        self.ws = self.root / "caller"
-        self.ws.mkdir()
-        self.repo = self.ws / "arbitrary-checkout"
+        self.repo = self.root / "arbitrary checkout"
         self.repo.mkdir()
-        (self.repo / ".platform-root").touch()
-        for name in MODULES:
-            (self.repo / name).mkdir()
-            (self.repo / name / "entry.py").touch()
+        self.entry = self.repo / "entry.py"
+        self.entry.touch()
+        self.link = self.root / "other" / "linked entry.py"
+        self.link.parent.mkdir()
+        self.link.symlink_to(self.entry)
 
-    def test_canonical_module_paths_share_workspace(self):
+    def test_real_and_symlink_default_ignore_cwd_and_marker(self):
         with patch.dict(os.environ, {}, clear=True):
-            for name in MODULES:
-                self.assertEqual(workspace_root(self.repo / name / "entry.py"), str(self.ws))
-                self.assertFalse((self.ws / name).exists())
+            self.assertEqual(workspace_root(self.entry), str(self.root))
+            self.assertEqual(workspace_root(self.link), str(self.root))
+            (self.repo / ".platform-root").touch()
+            self.assertEqual(workspace_root(self.entry), str(self.root))
 
-    def test_explicit_workspace_and_legacy_copy(self):
-        legacy = self.root / "legacy" / "agentd"
-        legacy.mkdir(parents=True)
-        (legacy / "entry.py").touch()
-        with patch.dict(os.environ, {"PLATFORM_WORKSPACE": str(self.root / "override")}):
-            self.assertEqual(workspace_root(self.repo / "agentd/entry.py"), str(self.root / "override"))
-            self.assertEqual(workspace_root(legacy / "entry.py"), str(legacy.parent))
+    def test_override_without_marker_and_blank_fallback(self):
+        with patch.dict(os.environ, {"PLATFORM_WORKSPACE": str(self.root / "workspace space")}):
+            for source in (self.entry, self.link):
+                self.assertEqual(workspace_root(source), str(self.root / "workspace space"))
+        with patch.dict(os.environ, {"PLATFORM_WORKSPACE": ""}):
+            self.assertEqual(workspace_root(self.entry), str(self.root))
 
+    def test_expanduser_relative_and_cli(self):
+        with patch.dict(os.environ, {"HOME": str(self.root), "PLATFORM_WORKSPACE": "~/chosen"}):
+            self.assertEqual(workspace_root(self.link), str(self.root / "chosen"))
+        env = {**os.environ, "PLATFORM_WORKSPACE": "relative space"}
+        result = subprocess.check_output([sys.executable, str(Path(__file__).with_name("platform_paths.py")), str(self.link)], cwd=self.root, env=env, text=True)
+        self.assertEqual(result.strip(), str(self.root / "relative space"))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,117 @@
+{
+  "baseline_full_tree_matches": true,
+  "final_source_freeze": "4ac4631fbdbf27f3c400805b233dc1d7a9892d46",
+  "final_projected_commit": "8fd6b0191516faeb1d6c212889c5665b3d1603b0",
+  "commits": [
+    {
+      "source_commit": "9809211b1e91adabb0dfda570bd4a79dc4313d21",
+      "selected_path_deltas": [
+        "README.md",
+        "gc.py",
+        "loop.sh",
+        "platform_paths.py",
+        "replica-tag.py",
+        "ssh-sync.py",
+        "test_platform_paths.py"
+      ],
+      "exact_source_payload_and_mode": true,
+      "target_commit": "31f10120d137df8c5611593b39b9f56e8ed942ed",
+      "no_op": false
+    },
+    {
+      "source_commit": "4dd1b8eaa958ef5f236afed78a74be30e43d030b",
+      "selected_path_deltas": [
+        "loop.sh",
+        "platform_paths.py",
+        "test_platform_paths.py"
+      ],
+      "exact_source_payload_and_mode": true,
+      "target_commit": "c16720538a4d7213fa10395c3af06b556e2002dc",
+      "no_op": false
+    },
+    {
+      "source_commit": "b5de241e352968bd317176e221050f6950089947",
+      "selected_path_deltas": [],
+      "exact_source_payload_and_mode": true,
+      "target_commit": null,
+      "no_op": true
+    },
+    {
+      "source_commit": "c4a35640c77a9356ce61addd6a1cde918706bff3",
+      "selected_path_deltas": [],
+      "exact_source_payload_and_mode": true,
+      "target_commit": null,
+      "no_op": true
+    },
+    {
+      "source_commit": "84184041bef2e74d05164c2fc321f4b44a1717e5",
+      "selected_path_deltas": [
+        "README.md",
+        "delete_contract.py",
+        "gc.py",
+        "ssh-sync.py",
+        "test_delete_contract.py",
+        "test_gc.py"
+      ],
+      "exact_source_payload_and_mode": true,
+      "target_commit": "8fd6b0191516faeb1d6c212889c5665b3d1603b0",
+      "no_op": false
+    },
+    {
+      "source_commit": "00a44146804f35a5f005d574d76b772dee159cef",
+      "selected_path_deltas": [],
+      "exact_source_payload_and_mode": true,
+      "target_commit": null,
+      "no_op": true
+    },
+    {
+      "source_commit": "e582727a0d02b78d08914aed89fd7479e0159a19",
+      "selected_path_deltas": [],
+      "exact_source_payload_and_mode": true,
+      "target_commit": null,
+      "no_op": true
+    },
+    {
+      "source_commit": "ba1e707af9163b4b7ae0b554c0525d3fe5210c72",
+      "selected_path_deltas": [],
+      "exact_source_payload_and_mode": true,
+      "target_commit": null,
+      "no_op": true
+    },
+    {
+      "source_commit": "68b595f33ab50108418c9a969378e7a471c200dc",
+      "selected_path_deltas": [],
+      "exact_source_payload_and_mode": true,
+      "target_commit": null,
+      "no_op": true
+    },
+    {
+      "source_commit": "da1961bd02aca8cbf0aa72a922ef0773e757c470",
+      "selected_path_deltas": [],
+      "exact_source_payload_and_mode": true,
+      "target_commit": null,
+      "no_op": true
+    },
+    {
+      "source_commit": "f93b8eb4945bf8bf52ab0773da6623978676acd3",
+      "selected_path_deltas": [],
+      "exact_source_payload_and_mode": true,
+      "target_commit": null,
+      "no_op": true
+    },
+    {
+      "source_commit": "fb758234da0bd717d511dd41999679fa0bbf4427",
+      "selected_path_deltas": [],
+      "exact_source_payload_and_mode": true,
+      "target_commit": null,
+      "no_op": true
+    },
+    {
+      "source_commit": "4ac4631fbdbf27f3c400805b233dc1d7a9892d46",
+      "selected_path_deltas": [],
+      "exact_source_payload_and_mode": true,
+      "target_commit": null,
+      "no_op": true
+    }
+  ]
+}

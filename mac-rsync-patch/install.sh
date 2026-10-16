@@ -14,9 +14,9 @@ cp "$DIR/rsync.rb" "$TAP_DIR/Formula/rsync.rb"
 if [ ! -d "$TAP_DIR/.git" ]; then
   git -C "$TAP_DIR" init -q
 fi
-git -C "$TAP_DIR" add -A
-git -C "$TAP_DIR" diff --cached --quiet || \
-  git -C "$TAP_DIR" commit -qm "rsync.rb: getgrouplist patch (mac-rsync-patch)"
+git -C "$TAP_DIR" add -- Formula/rsync.rb
+git -C "$TAP_DIR" diff --cached --quiet -- Formula/rsync.rb || \
+  git -C "$TAP_DIR" commit -qm 'rsync.rb: getgrouplist patch (mac-rsync-patch)' -- Formula/rsync.rb
 
 echo "[2/6] brew tap $TAP_USER/$TAP_REPO"
 if brew tap | grep -qx "$TAP_USER/$TAP_REPO"; then
@@ -40,12 +40,14 @@ echo "[5/6] brew pin rsync（防 brew upgrade 覆盖）"
 brew pin rsync || true
 
 echo "[6/6] 冒烟验证 --chown=:replica"
-rm -rf /tmp/rs-mac-patch-smoke
-mkdir -p /tmp/rs-mac-patch-smoke/src /tmp/rs-mac-patch-smoke/dst
-echo smoke > /tmp/rs-mac-patch-smoke/src/f.txt
-chgrp replica /tmp/rs-mac-patch-smoke/src/f.txt
-rsync -a --chown=:replica /tmp/rs-mac-patch-smoke/src/ /tmp/rs-mac-patch-smoke/dst/
-GID="$(stat -f %g /tmp/rs-mac-patch-smoke/dst/f.txt)"
-echo "dst gid=$GID (期望 502)"
-[ "$GID" = 502 ] || { echo "FAIL: --chown 未生效"; exit 1; }
+# Only a fresh, caller-local harmless tree; retain it for inspection, never
+# delete a fixed shared path. Resolve receiver identity by group NAME.
+SMOKE="$(mktemp -d "${TMPDIR:-/tmp}/rs-mac-patch-smoke.XXXXXX")"
+mkdir -p "$SMOKE/src" "$SMOKE/dst"
+echo smoke > "$SMOKE/src/f.txt"
+chgrp replica "$SMOKE/src/f.txt"
+rsync -a --chown=:replica "$SMOKE/src/" "$SMOKE/dst/"
+GROUP="$(stat -f %Sg "$SMOKE/dst/f.txt")"
+echo "dst group=$GROUP (expected replica), retained fixture=$SMOKE"
+[ "$GROUP" = replica ] || { echo "FAIL: --chown 未生效"; exit 1; }
 echo "OK: 补丁版 rsync 已安装并验证"

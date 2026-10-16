@@ -6,9 +6,9 @@
 
 ## 根因（一句话）
 
-macOS 内核凭据只缓存 `kern.ngroups=16` 个补充组（编译期只读常量），而本机用户
-在 Directory Services 有 18 个组——`getgroups(2)` 拿到的进程组表被截断，恰好
-丢掉 `replica(502)`。rsync 接收端非 root 时 `uidlist.c` 的 `is_in_group` 用
+macOS 内核凭据只缓存 `kern.ngroups=16` 个补充组（编译期只读常量），而用户
+在 Directory Services 可能超过此数——`getgroups(2)` 拿到的进程组表被截断，可能
+丢掉 `replica`。rsync 接收端非 root 时 `uidlist.c` 的 `is_in_group` 用
 `getgroups` 预检目标组，判否即 `FLAG_SKIP_GROUP` 静默跳过 chgrp——于是
 `--chown=:replica` / `-g` 全部失效（agents-sync 属组闸门的打标路径被打穿）。
 而 `chown(2)` 的内核鉴权走 OpenDirectory 全量组列表，所以 `chgrp`/`os.chown`
@@ -63,19 +63,19 @@ macOS 内核凭据只缓存 `kern.ngroups=16` 个补充组（编译期只读常�
 脚本动作（幂等可重跑）：
 
 1. 物化本地 tap 到 `~/homebrew-taps/mac-rsync/`（Formula/rsync.rb，自动
-   `git init`——brew 6 要求 tap 是 git 仓库；该目录在 ~/m 之外，不入 ~/m 仓库）。
+   `git init`——brew 6 要求 tap 是 git 仓库；该目录由调用方管理，不入本源码仓）。
 2. `brew tap local/mac-rsync`（已 tap 则跳过）。
 3. 卸载官方 rsync bottle（`brew uninstall --ignore-dependencies rsync`）。
-4. `brew install --build-from-source alice/mac-rsync/rsync`（源码编译进
+4. `brew install --build-from-source local/mac-rsync/rsync`（源码编译进
    `/opt/homebrew/Cellar/rsync/3.5.0/`，与官方包同一 Cellar 路径，
    `/opt/homebrew/bin/rsync` 链接关系不变）。
 5. `brew pin rsync`（防止未来 `brew upgrade` 用官方 bottle 覆盖；升级见下）。
-6. 冒烟验证 `--chown=:replica`（文件 gid=502；目录不标，见下）。
+6. 在新建临时树冒烟验证 `--chown=:replica`（按接收端组名核验，不固定 gid）；保留夹具供检查，不删除共享固定目录。
 
 安装后核对：`brew info rsync` 应显示 `From: <tap 路径>`；
-`rsync --debug=OWN3` 传输时应打印 `process has 18 gids: ... 502 ...`；
-二期行为：传输含目录的树后 `ls -ln` 目标——常规文件 gid=502、目录/符号链接
-保持接收进程默认组（如 ~/ 下新建为 20/staff）；对同一目标重复 `rsync -ai`
+`rsync --debug=OWN3` 传输时可核完整组列表是否含接收端的 replica gid；
+二期行为：传输含目录的树后核目标——常规文件属 replica、目录/符号链接
+保持接收进程默认组；对同一目标重复 `rsync -ai`
 应零输出（目录无组差异条目）。
 
 ## 升级维护（新版 rsync 发布时）

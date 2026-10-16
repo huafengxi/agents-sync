@@ -1,0 +1,57 @@
+{
+  "original_main": "573dabf7cf0dbffe49e956760dae1a29d900bde1",
+  "original_main_ancestor": true,
+  "candidate_fsck_full_strict": true,
+  "source_ref_checks": [
+    {
+      "source": "archive",
+      "source_ref": "refs/heads/main",
+      "target_ref": "refs/heads/main",
+      "original_oid": "573dabf7cf0dbffe49e956760dae1a29d900bde1",
+      "origin_actual_oid": "573dabf7cf0dbffe49e956760dae1a29d900bde1",
+      "objects_checked": 75,
+      "original_objects_named_reachable": true,
+      "candidate_objects_present": true
+    },
+    {
+      "source": "archive",
+      "source_ref": "refs/remotes/origin/main",
+      "target_ref": "refs/heads/preserve/source-remotes/origin/main",
+      "original_oid": "573dabf7cf0dbffe49e956760dae1a29d900bde1",
+      "origin_actual_oid": "573dabf7cf0dbffe49e956760dae1a29d900bde1",
+      "objects_checked": 75,
+      "original_objects_named_reachable": true,
+      "candidate_objects_present": true
+    },
+    {
+      "source": "retired",
+      "source_ref": "refs/heads/main",
+      "target_ref": "refs/heads/main",
+      "original_oid": "573dabf7cf0dbffe49e956760dae1a29d900bde1",
+      "origin_actual_oid": "573dabf7cf0dbffe49e956760dae1a29d900bde1",
+      "objects_checked": 75,
+      "original_objects_named_reachable": true,
+      "candidate_objects_present": true
+    },
+    {
+      "source": "retired",
+      "source_ref": "refs/remotes/github/main",
+      "target_ref": "refs/heads/preserve/source-remotes/github/main",
+      "original_oid": "1ba0d3735bf60372d290c95d50957385dd822001",
+      "origin_actual_oid": "1ba0d3735bf60372d290c95d50957385dd822001",
+      "objects_checked": 55,
+      "original_objects_named_reachable": true,
+      "candidate_objects_present": true
+    },
+    {
+      "source": "retired",
+      "source_ref": "refs/remotes/origin/main",
+      "target_ref": "refs/heads/preserve/source-remotes/origin/main",
+      "original_oid": "573dabf7cf0dbffe49e956760dae1a29d900bde1",
+      "origin_actual_oid": "573dabf7cf0dbffe49e956760dae1a29d900bde1",
+      "objects_checked": 75,
+      "original_objects_named_reachable": true,
+      "candidate_objects_present": true
+    }
+  ]
+}

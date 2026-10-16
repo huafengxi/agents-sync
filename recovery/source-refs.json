@@ -1,0 +1,71 @@
+{
+  "origin": "/home/yuanqi.xhf/git/agents-sync.git",
+  "sources": [
+    {
+      "label": "archive",
+      "path": "/home/yuanqi.xhf/git/archived/agents-sync.git",
+      "refs": {
+        "refs/heads/main": "573dabf7cf0dbffe49e956760dae1a29d900bde1",
+        "refs/remotes/origin/main": "573dabf7cf0dbffe49e956760dae1a29d900bde1"
+      },
+      "HEAD": "573dabf7cf0dbffe49e956760dae1a29d900bde1"
+    },
+    {
+      "label": "retired",
+      "path": "/home/yuanqi.xhf/m/run/retired/merge-platform-20261015/agents-sync",
+      "refs": {
+        "refs/heads/main": "573dabf7cf0dbffe49e956760dae1a29d900bde1",
+        "refs/remotes/github/main": "1ba0d3735bf60372d290c95d50957385dd822001",
+        "refs/remotes/origin/main": "573dabf7cf0dbffe49e956760dae1a29d900bde1"
+      },
+      "HEAD": "573dabf7cf0dbffe49e956760dae1a29d900bde1",
+      "status": ""
+    }
+  ],
+  "mapping": [
+    {
+      "source": "archive",
+      "source_ref": "refs/heads/main",
+      "target_ref": "refs/heads/main",
+      "oid": "573dabf7cf0dbffe49e956760dae1a29d900bde1",
+      "object_count": 75
+    },
+    {
+      "source": "archive",
+      "source_ref": "refs/remotes/origin/main",
+      "target_ref": "refs/heads/preserve/source-remotes/origin/main",
+      "oid": "573dabf7cf0dbffe49e956760dae1a29d900bde1",
+      "object_count": 75
+    },
+    {
+      "source": "retired",
+      "source_ref": "refs/heads/main",
+      "target_ref": "refs/heads/main",
+      "oid": "573dabf7cf0dbffe49e956760dae1a29d900bde1",
+      "object_count": 75
+    },
+    {
+      "source": "retired",
+      "source_ref": "refs/remotes/github/main",
+      "target_ref": "refs/heads/preserve/source-remotes/github/main",
+      "oid": "1ba0d3735bf60372d290c95d50957385dd822001",
+      "object_count": 55
+    },
+    {
+      "source": "retired",
+      "source_ref": "refs/remotes/origin/main",
+      "target_ref": "refs/heads/preserve/source-remotes/origin/main",
+      "oid": "573dabf7cf0dbffe49e956760dae1a29d900bde1",
+      "object_count": 75
+    }
+  ],
+  "target_refs": {
+    "refs/heads/main": "573dabf7cf0dbffe49e956760dae1a29d900bde1",
+    "refs/heads/preserve/source-remotes/github/main": "1ba0d3735bf60372d290c95d50957385dd822001",
+    "refs/heads/preserve/source-remotes/origin/main": "573dabf7cf0dbffe49e956760dae1a29d900bde1"
+  },
+  "bundle": "agents-sync.bundle",
+  "original_main_ancestor": true,
+  "sha256": "7c4c98bb3fd28653774adfbfe3eb78e041b27119aca35f14010b667a05c2de10",
+  "bytes": 116387
+}

@@ -1,0 +1,356 @@
+[
+  {
+    "target_path": ".gitignore",
+    "original_main": {
+      "mode": "100644",
+      "blob": "7a60b85e148f80966a550e5ab6a762a907c69ca6"
+    },
+    "projected_source": {
+      "mode": "100644",
+      "blob": "7a60b85e148f80966a550e5ab6a762a907c69ca6"
+    },
+    "adapted": {
+      "mode": "100644",
+      "blob": "7a60b85e148f80966a550e5ab6a762a907c69ca6"
+    },
+    "source_net_change": false,
+    "adaptation": null,
+    "deletion": false
+  },
+  {
+    "target_path": "README.md",
+    "original_main": {
+      "mode": "100644",
+      "blob": "0c2fe011d7e49ee368b8e50bebc12260a1c54625"
+    },
+    "projected_source": {
+      "mode": "100644",
+      "blob": "1944cd5f6c9ed34597e5fee95d1d743710a6acca"
+    },
+    "adapted": {
+      "mode": "100644",
+      "blob": "93cd4fcb12ce2e56705364668a89ced752bb4053"
+    },
+    "source_net_change": true,
+    "adaptation": "Standalone mechanism/config/root contract replaces integrated deployment docs.",
+    "deletion": false
+  },
+  {
+    "target_path": "delete_contract.py",
+    "original_main": null,
+    "projected_source": {
+      "mode": "100644",
+      "blob": "9c0b42fdaafd7806ec3d0b479c93539cae971aba"
+    },
+    "adapted": {
+      "mode": "100644",
+      "blob": "9c0b42fdaafd7806ec3d0b479c93539cae971aba"
+    },
+    "source_net_change": true,
+    "adaptation": null,
+    "deletion": false
+  },
+  {
+    "target_path": "gc.py",
+    "original_main": {
+      "mode": "100644",
+      "blob": "39feec6ef10c8680ca70d3108b848f583d340e69"
+    },
+    "projected_source": {
+      "mode": "100644",
+      "blob": "0b42773ac62747a55e6fb8369024beea3e9ecb32"
+    },
+    "adapted": {
+      "mode": "100644",
+      "blob": "9365cab5226edf94bad1161f8750371222eeb7ed"
+    },
+    "source_net_change": true,
+    "adaptation": "Real local import; hub directory injected; docstrings generalized.",
+    "deletion": false
+  },
+  {
+    "target_path": "loop.sh",
+    "original_main": {
+      "mode": "100755",
+      "blob": "e42cae4636a526be9cb5755bab6303325491b8b1"
+    },
+    "projected_source": {
+      "mode": "100755",
+      "blob": "78826018c1114fdf74e623f715a05b05c59dd697"
+    },
+    "adapted": {
+      "mode": "100755",
+      "blob": "43984ed39206a1c2813c7d7d1fc4d64894efbfec"
+    },
+    "source_net_change": true,
+    "adaptation": "Real entry/helper; fully quoted SG re-exec; every second watch uses same local entry; explicit remote.",
+    "deletion": false
+  },
+  {
+    "target_path": "mac-rsync-patch/README.md",
+    "original_main": {
+      "mode": "100644",
+      "blob": "02bd145390d2fabb9d45782729cacc6b7a15de4f"
+    },
+    "projected_source": {
+      "mode": "100644",
+      "blob": "02bd145390d2fabb9d45782729cacc6b7a15de4f"
+    },
+    "adapted": {
+      "mode": "100644",
+      "blob": "23b407e7b2c2628a49ea3d7a0cd6d2b61ac54a13"
+    },
+    "source_net_change": false,
+    "adaptation": "Generalized group-name diagnostics and smoke fixture docs.",
+    "deletion": false
+  },
+  {
+    "target_path": "mac-rsync-patch/install.sh",
+    "original_main": {
+      "mode": "100755",
+      "blob": "0e39460f7e4a1014a0333e1d88c061d3623007d0"
+    },
+    "projected_source": {
+      "mode": "100755",
+      "blob": "0e39460f7e4a1014a0333e1d88c061d3623007d0"
+    },
+    "adapted": {
+      "mode": "100755",
+      "blob": "d008b4351cb320bdd9041c38cefa0a52fa074caf"
+    },
+    "source_net_change": false,
+    "adaptation": "No shared fixed deletion path or hardcoded receiver gid; scoped Formula commit.",
+    "deletion": false
+  },
+  {
+    "target_path": "mac-rsync-patch/rsync-chown-dirs-skip.patch",
+    "original_main": {
+      "mode": "100644",
+      "blob": "1d0e456d28c604414af5a9b996094069b8b22827"
+    },
+    "projected_source": {
+      "mode": "100644",
+      "blob": "1d0e456d28c604414af5a9b996094069b8b22827"
+    },
+    "adapted": {
+      "mode": "100644",
+      "blob": "1d0e456d28c604414af5a9b996094069b8b22827"
+    },
+    "source_net_change": false,
+    "adaptation": null,
+    "deletion": false
+  },
+  {
+    "target_path": "mac-rsync-patch/rsync-getgrouplist.patch",
+    "original_main": {
+      "mode": "100644",
+      "blob": "15ddb2948ef60507943efbb1b64781d8fd4479fa"
+    },
+    "projected_source": {
+      "mode": "100644",
+      "blob": "15ddb2948ef60507943efbb1b64781d8fd4479fa"
+    },
+    "adapted": {
+      "mode": "100644",
+      "blob": "15ddb2948ef60507943efbb1b64781d8fd4479fa"
+    },
+    "source_net_change": false,
+    "adaptation": null,
+    "deletion": false
+  },
+  {
+    "target_path": "mac-rsync-patch/rsync.rb",
+    "original_main": {
+      "mode": "100644",
+      "blob": "d44b76b25a956544bb2b06d233df56a6bf4e8d07"
+    },
+    "projected_source": {
+      "mode": "100644",
+      "blob": "d44b76b25a956544bb2b06d233df56a6bf4e8d07"
+    },
+    "adapted": {
+      "mode": "100644",
+      "blob": "d44b76b25a956544bb2b06d233df56a6bf4e8d07"
+    },
+    "source_net_change": false,
+    "adaptation": null,
+    "deletion": false
+  },
+  {
+    "target_path": "platform_paths.py",
+    "original_main": null,
+    "projected_source": {
+      "mode": "100644",
+      "blob": "fac7d40d7846eaf80865215c413071d3a7627d1a"
+    },
+    "adapted": {
+      "mode": "100644",
+      "blob": "85821008051c18510c216dbce75cc37958d7cc63"
+    },
+    "source_net_change": true,
+    "adaptation": "Independent real-source root helper and nonempty override semantics; no roster/marker dependency.",
+    "deletion": false
+  },
+  {
+    "target_path": "replica-tag.py",
+    "original_main": {
+      "mode": "100644",
+      "blob": "d09a942a23410907149777f3c9aa03edbedcac0e"
+    },
+    "projected_source": {
+      "mode": "100644",
+      "blob": "e24ba22ae56dc00d2d21574acbfed50d51248117"
+    },
+    "adapted": {
+      "mode": "100644",
+      "blob": "d7a2553169954e074a5c4bc50274c5b6a834a2f6"
+    },
+    "source_net_change": true,
+    "adaptation": "Real local import; canonical hub injected; classifier rules unchanged.",
+    "deletion": false
+  },
+  {
+    "target_path": "ssh-sync.py",
+    "original_main": {
+      "mode": "100755",
+      "blob": "500f5c304f33bf0e1fcb06139564db87522c966c"
+    },
+    "projected_source": {
+      "mode": "100755",
+      "blob": "acf7e39d9c928359e3b36b85f5a62992d1d9d366"
+    },
+    "adapted": {
+      "mode": "100755",
+      "blob": "d48ee14ced84ff90f959552cc4edb949c8089ee3"
+    },
+    "source_net_change": true,
+    "adaptation": "Real local import; remote injected and required; generic SSH config default; no transfer algorithm changes.",
+    "deletion": false
+  },
+  {
+    "target_path": "test_delete_contract.py",
+    "original_main": null,
+    "projected_source": {
+      "mode": "100644",
+      "blob": "b03835324cf59e5b1bc73f19cbdfff19c6c400e3"
+    },
+    "adapted": {
+      "mode": "100644",
+      "blob": "b03835324cf59e5b1bc73f19cbdfff19c6c400e3"
+    },
+    "source_net_change": true,
+    "adaptation": null,
+    "deletion": false
+  },
+  {
+    "target_path": "test_gc.py",
+    "original_main": {
+      "mode": "100644",
+      "blob": "921d8a094c858a48b0fce2d95f0942a874839a28"
+    },
+    "projected_source": {
+      "mode": "100644",
+      "blob": "13cf9c5d6a02bb77c2723d4355292b043b479c4a"
+    },
+    "adapted": {
+      "mode": "100644",
+      "blob": "13cf9c5d6a02bb77c2723d4355292b043b479c4a"
+    },
+    "source_net_change": true,
+    "adaptation": null,
+    "deletion": false
+  },
+  {
+    "target_path": "test_independent.py",
+    "original_main": null,
+    "projected_source": null,
+    "adapted": {
+      "mode": "100644",
+      "blob": "710d115464e4e790602d452443e89b80c0d31e18"
+    },
+    "source_net_change": false,
+    "adaptation": "New independent import/config/real and symlink CLI fixtures.",
+    "deletion": false
+  },
+  {
+    "target_path": "test_loop.py",
+    "original_main": null,
+    "projected_source": null,
+    "adapted": {
+      "mode": "100644",
+      "blob": "19a385ee777a8989a65d15fb170fabd105600eda"
+    },
+    "source_net_change": false,
+    "adaptation": "New safe SG/restart/softlink/Bash regression harness.",
+    "deletion": false
+  },
+  {
+    "target_path": "test_platform_paths.py",
+    "original_main": null,
+    "projected_source": {
+      "mode": "100644",
+      "blob": "42f1e3419ba1007398cd431ecc19d313e2bb53a5"
+    },
+    "adapted": {
+      "mode": "100644",
+      "blob": "2e70ccac64b31b79bd159c733ca0c8b05902cb64"
+    },
+    "source_net_change": true,
+    "adaptation": "Standalone helper fixtures.",
+    "deletion": false
+  },
+  {
+    "target_path": "test_protect.py",
+    "original_main": {
+      "mode": "100644",
+      "blob": "2c5235dcf9c0d54b7a9c5900beb11e0e8c9b7113"
+    },
+    "projected_source": {
+      "mode": "100644",
+      "blob": "2c5235dcf9c0d54b7a9c5900beb11e0e8c9b7113"
+    },
+    "adapted": {
+      "mode": "100644",
+      "blob": "2c5235dcf9c0d54b7a9c5900beb11e0e8c9b7113"
+    },
+    "source_net_change": false,
+    "adaptation": null,
+    "deletion": false
+  },
+  {
+    "target_path": "test_replica_tag.py",
+    "original_main": {
+      "mode": "100644",
+      "blob": "330f9facb31a31d7d910065ad500187d94b411bc"
+    },
+    "projected_source": {
+      "mode": "100644",
+      "blob": "330f9facb31a31d7d910065ad500187d94b411bc"
+    },
+    "adapted": {
+      "mode": "100644",
+      "blob": "a79f8acadbdd137ff529024cf975d1d3746af541"
+    },
+    "source_net_change": false,
+    "adaptation": "Synthetic hub explicitly injected.",
+    "deletion": false
+  },
+  {
+    "target_path": "test_watch.py",
+    "original_main": {
+      "mode": "100644",
+      "blob": "f62a97e1093fe26cf498513a5babe6fea9b7b59c"
+    },
+    "projected_source": {
+      "mode": "100644",
+      "blob": "f62a97e1093fe26cf498513a5babe6fea9b7b59c"
+    },
+    "adapted": {
+      "mode": "100644",
+      "blob": "f62a97e1093fe26cf498513a5babe6fea9b7b59c"
+    },
+    "source_net_change": false,
+    "adaptation": null,
+    "deletion": false
+  }
+]

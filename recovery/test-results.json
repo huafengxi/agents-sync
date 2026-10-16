@@ -1,0 +1,29 @@
+{
+  "suites": {
+    "test_delete_contract.py": 0,
+    "test_gc.py": 0,
+    "test_independent.py": 0,
+    "test_loop.py": 0,
+    "test_platform_paths.py": 0,
+    "test_protect.py": 0,
+    "test_replica_tag.py": 0,
+    "test_watch.py": 0
+  },
+  "counts": {
+    "gc": 335,
+    "watch": 65,
+    "replica_tag": 82,
+    "delete_contract": 3,
+    "protect": 2,
+    "platform_paths": 3,
+    "independent": 3,
+    "loop": 4
+  },
+  "watch_skips": 0,
+  "bash32_loop_tests": 4,
+  "bash32_version": "GNU bash 3.2.0(2)-release (x86_64-unknown-linux-gnu)",
+  "bash32_tar_sha256": "26c99025b59e30779300b68adb764f824974d267a4d7cc1b347d14a2393f9fb4",
+  "safe_delete_source_commit": "fb758234da0bd717d511dd41999679fa0bbf4427",
+  "safe_delete_source_path": "agentd/safe_delete.py",
+  "safe_delete_sha256": "8d53e5f696d6735e8b1156d256fd51acfd02ed38682f311d4876952ec6cef754"
+}

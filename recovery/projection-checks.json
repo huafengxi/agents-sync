@@ -1,0 +1,139 @@
+{
+  "frozen_head": "fb758234da0bd717d511dd41999679fa0bbf4427",
+  "paths": [
+    {
+      "source_path": "agents-sync/.gitignore",
+      "target_path": ".gitignore",
+      "mode": "100644",
+      "blob": "7a60b85e148f80966a550e5ab6a762a907c69ca6",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "agents-sync/README.md",
+      "target_path": "README.md",
+      "mode": "100644",
+      "blob": "1944cd5f6c9ed34597e5fee95d1d743710a6acca",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "agents-sync/delete_contract.py",
+      "target_path": "delete_contract.py",
+      "mode": "100644",
+      "blob": "9c0b42fdaafd7806ec3d0b479c93539cae971aba",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "agents-sync/gc.py",
+      "target_path": "gc.py",
+      "mode": "100644",
+      "blob": "0b42773ac62747a55e6fb8369024beea3e9ecb32",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "agents-sync/loop.sh",
+      "target_path": "loop.sh",
+      "mode": "100755",
+      "blob": "78826018c1114fdf74e623f715a05b05c59dd697",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "agents-sync/mac-rsync-patch/README.md",
+      "target_path": "mac-rsync-patch/README.md",
+      "mode": "100644",
+      "blob": "02bd145390d2fabb9d45782729cacc6b7a15de4f",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "agents-sync/mac-rsync-patch/install.sh",
+      "target_path": "mac-rsync-patch/install.sh",
+      "mode": "100755",
+      "blob": "0e39460f7e4a1014a0333e1d88c061d3623007d0",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "agents-sync/mac-rsync-patch/rsync-chown-dirs-skip.patch",
+      "target_path": "mac-rsync-patch/rsync-chown-dirs-skip.patch",
+      "mode": "100644",
+      "blob": "1d0e456d28c604414af5a9b996094069b8b22827",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "agents-sync/mac-rsync-patch/rsync-getgrouplist.patch",
+      "target_path": "mac-rsync-patch/rsync-getgrouplist.patch",
+      "mode": "100644",
+      "blob": "15ddb2948ef60507943efbb1b64781d8fd4479fa",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "agents-sync/mac-rsync-patch/rsync.rb",
+      "target_path": "mac-rsync-patch/rsync.rb",
+      "mode": "100644",
+      "blob": "d44b76b25a956544bb2b06d233df56a6bf4e8d07",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "agents-sync/replica-tag.py",
+      "target_path": "replica-tag.py",
+      "mode": "100644",
+      "blob": "e24ba22ae56dc00d2d21574acbfed50d51248117",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "agents-sync/ssh-sync.py",
+      "target_path": "ssh-sync.py",
+      "mode": "100755",
+      "blob": "acf7e39d9c928359e3b36b85f5a62992d1d9d366",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "agents-sync/test_delete_contract.py",
+      "target_path": "test_delete_contract.py",
+      "mode": "100644",
+      "blob": "b03835324cf59e5b1bc73f19cbdfff19c6c400e3",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "agents-sync/test_gc.py",
+      "target_path": "test_gc.py",
+      "mode": "100644",
+      "blob": "13cf9c5d6a02bb77c2723d4355292b043b479c4a",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "agents-sync/test_protect.py",
+      "target_path": "test_protect.py",
+      "mode": "100644",
+      "blob": "2c5235dcf9c0d54b7a9c5900beb11e0e8c9b7113",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "agents-sync/test_replica_tag.py",
+      "target_path": "test_replica_tag.py",
+      "mode": "100644",
+      "blob": "330f9facb31a31d7d910065ad500187d94b411bc",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "agents-sync/test_watch.py",
+      "target_path": "test_watch.py",
+      "mode": "100644",
+      "blob": "f62a97e1093fe26cf498513a5babe6fea9b7b59c",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "platform_paths.py",
+      "target_path": "platform_paths.py",
+      "mode": "100644",
+      "blob": "fac7d40d7846eaf80865215c413071d3a7627d1a",
+      "exact_source_match": true
+    },
+    {
+      "source_path": "test_platform_paths.py",
+      "target_path": "test_platform_paths.py",
+      "mode": "100644",
+      "blob": "42f1e3419ba1007398cd431ecc19d313e2bb53a5",
+      "exact_source_match": true
+    }
+  ],
+  "deleted_paths": []
+}
