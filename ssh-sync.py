@@ -59,7 +59,9 @@ Rules, point by point:
    locally → pushed, and protected on pull). ``session/`` travels like
    any other subtree.
 5. Both lists travel via stdin (``--files-from=-`` / ``--exclude-from=-``);
-   no temp files. Protect and gc entries are ANCHORED (``/rel``, ``/rel/``)
+   no named protocol temp files. The opt-in foreground transport uses an
+   anonymous private stdin buffer so large input remains stop-responsive.
+   Protect and gc entries are ANCHORED (``/rel``, ``/rel/``)
    so a slashless pattern cannot match on basename elsewhere in the tree.
 6. Failure is ASYMMETRIC: an unmarked file is never overwritten (worst
    case = a stale replica lingers, never data loss), and every protected
@@ -177,7 +179,7 @@ Detection backends
   watchdog``) → none. With no local backend the link still works: the
   ``--interval`` deadline alone drives it (latency ≤ interval).
 + REMOTE: ``ssh host python3 -c <inotify_simple script>`` streaming one
-  line per event, RECONNECTED with backoff (5/10/30 s, reset after a 60 s
+  line per event, RECONNECTED with backoff (5/10/20/30 s, reset after a 60 s
   healthy run) whenever the stream ends; each reconnect attempt also notes
   an event, so a blind window is closed by the next cycle rather than left
   to the deadline. A remote without python3 + inotify_simple is a HARD
@@ -225,6 +227,7 @@ except ImportError:
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from platform_paths import workspace_root
+from foreground_transport import ForegroundTransport, TransportStopped
 from delete_contract import (GC_DIR_NAME, LIST_PREFIX as GC_LIST_PREFIX,
                              FORCE_MARK as GC_FORCE_MARK, GLOB_UNSAFE,
                              BARE_FAMILY_ENTRIES as GC_BARE_FAMILY_ENTRIES,
@@ -256,6 +259,28 @@ SSH_TIMEOUT_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=8",
                     "-o", "ControlMaster=auto",
                     "-o", f"ControlPath={_SSH_CONTROL_PATH}",
                     "-o", "ControlPersist=60"]
+
+
+def ssh_options():
+    """Legacy defaults, or non-persistent foreground transport for every call."""
+    if _FOREGROUND is None:
+        return list(SSH_TIMEOUT_OPTS)
+    return SSH_TIMEOUT_OPTS[:8] + [
+        "-o", "ControlMaster=no", "-o", "ControlPath=none",
+        "-o", "ControlPersist=no", "-o", "ForkAfterAuthentication=no",
+        "-o", "PermitLocalCommand=no"]
+
+
+def _transport_run(*args, **kwargs):
+    if _FOREGROUND is None:
+        return subprocess.run(*args, **kwargs)
+    return _FOREGROUND.run(*args, **kwargs)
+
+
+def _transport_popen(*args, **kwargs):
+    if _FOREGROUND is None:
+        return subprocess.Popen(*args, **kwargs)
+    return _FOREGROUND.popen(*args, **kwargs)
 
 # Group gate (see module docstring). The ONE cross-machine consensus is
 # this group NAME: --chown=:replica resolves it by name on each receiver,
@@ -486,7 +511,7 @@ def parse_remote(spec):
 def run(cmd, verbose, check=True, capture=False):
     if verbose:
         print("+ " + " ".join(shlex.quote(c) for c in cmd), file=sys.stderr)
-    r = subprocess.run(
+    r = _transport_run(
         cmd,
         stdout=subprocess.PIPE if capture else None,
         text=True,
@@ -500,7 +525,7 @@ def run(cmd, verbose, check=True, capture=False):
 def preflight(cfg, host):
     print(f"preflight: checking ssh connectivity to {host!r} ...",
           file=sys.stderr)
-    cmd = ["ssh", "-F", cfg] + SSH_TIMEOUT_OPTS + [host, "true"]
+    cmd = ["ssh", "-F", cfg] + ssh_options() + [host, "true"]
     r = run(cmd, verbose=False, check=False)
     if r.returncode != 0:
         die(f"cannot reach host {host!r} (ssh exit {r.returncode}). "
@@ -521,7 +546,7 @@ def rsync_cmd(cfg, args, verbose):
         cmd += ["--exclude", pat]
     if verbose:
         cmd.append("-v")
-    cmd += ["-e", " ".join(["ssh", "-F", shlex.quote(cfg)] + SSH_TIMEOUT_OPTS)]
+    cmd += ["-e", " ".join(["ssh", "-F", shlex.quote(cfg)] + ssh_options())]
     return cmd
 
 
@@ -532,7 +557,7 @@ def do_push(cfg, host, local_dir, remote_dir, args):
         os.makedirs(local_dir, exist_ok=True)
     # Ensure the remote directory exists (rsync only creates the last
     # path component; create parents explicitly).
-    run(["ssh", "-F", cfg] + SSH_TIMEOUT_OPTS
+    run(["ssh", "-F", cfg] + ssh_options()
         + [host, "mkdir -p", "--", remote_dir],
         args.verbose, check=not args.dry_run)
     src = local_dir.rstrip("/") + "/"
@@ -636,6 +661,8 @@ def unmarked_files(local_dir, replica_gid, excludes=()):
 
 _STOP = threading.Event()          # set by SIGTERM/SIGINT
 _REMOTE_STREAM_PROC = None         # ssh subprocess of the remote event stream
+_FOREGROUND = None                 # opt-in direct transport children only
+_WATCH_THREADS = []                 # joined before foreground root exits
 
 
 class ChangeSignal:
@@ -745,7 +772,7 @@ def _excluded(relpath, patterns):
     return False
 
 def _watch_ssh_e(cfg):
-    return ["-e", " ".join(["ssh", "-F", shlex.quote(cfg)] + SSH_TIMEOUT_OPTS)]
+    return ["-e", " ".join(["ssh", "-F", shlex.quote(cfg)] + ssh_options())]
 
 
 def _watch_optional_flags(args):
@@ -808,7 +835,7 @@ def watch_rsync(cfg, host, local_dir, remote_dir, args, direction,
         # The hub directory is (re)created every cycle: it is one
         # multiplexed ssh exec, and it makes "the hub dir went away"
         # self-healing instead of a permanent loud failure.
-        r = run(["ssh", "-F", cfg] + SSH_TIMEOUT_OPTS
+        r = run(["ssh", "-F", cfg] + ssh_options()
                 + [host, "mkdir -p", "--", remote_dir],
                 args.verbose, check=False)
         if r.returncode != 0:
@@ -884,7 +911,7 @@ def watch_rsync(cfg, host, local_dir, remote_dir, args, direction,
 
     _bump(f"{direction}_cycles")
     try:
-        r = subprocess.run(cmd, input=stdin, stdout=subprocess.PIPE,
+        r = _transport_run(cmd, input=stdin, stdout=subprocess.PIPE,
                            stderr=subprocess.STDOUT, text=True, timeout=600)
     except subprocess.TimeoutExpired:
         wlog(f"error: {direction}: rsync timed out after 600s")
@@ -1104,13 +1131,13 @@ def local_watchdog_thread(local_dir):
             pass
     finally:
         obs.stop()
-        obs.join(timeout=5)
+        obs.join() if _FOREGROUND is not None else obs.join(timeout=5)
 
 
 def remote_stream_thread(cfg, host, remote_dir):
     """Stream remote filesystem events over ssh and note them.
 
-    A stream that ends is RESTARTED with backoff (5/10/30 s, reset after a
+    A stream that ends is RESTARTED with backoff (5/10/20/30 s, reset after a
     60 s healthy run); every restart attempt also notes an event, so the
     blind window is closed by the next cycle instead of being left to the
     ``--interval`` deadline. An unparseable line counts as an event (never
@@ -1119,12 +1146,14 @@ def remote_stream_thread(cfg, host, remote_dir):
     excludes = ",".join(WATCH_EXCLUDES)
     watch_cmd = (f"python3 -c {shlex.quote(REMOTE_PY_INOTIFY_SCRIPT)} "
                  f"{shlex.quote(remote_dir)} {shlex.quote(excludes)}")
-    cmd = ["ssh", "-F", cfg] + SSH_TIMEOUT_OPTS + [host, watch_cmd]
+    cmd = ["ssh", "-F", cfg] + ssh_options() + [host, watch_cmd]
     backoff = 5.0
     while not _STOP.is_set():
         try:
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+            proc = _transport_popen(cmd, stdout=subprocess.PIPE,
                                     stderr=subprocess.DEVNULL, text=True)
+        except TransportStopped:
+            return
         except OSError as e:
             wlog(f"error: cannot start the remote event stream: {e}; "
                  f"retrying in {backoff:.0f}s")
@@ -1136,18 +1165,27 @@ def remote_stream_thread(cfg, host, remote_dir):
         _REMOTE_STREAM_PROC = proc
         wlog(f"remote watcher: event stream active on {host}")
         started = time.time()
-        while not _STOP.is_set():
-            line = proc.stdout.readline()
-            if not line:
-                break
-            if os.environ.get("SSH_SYNC_DEBUG"):
-                wlog(f"dbg: remote event: {line.strip()[:120]}")
-            _REMOTE_SIG.note()
-        proc.terminate()
         try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+            while not _STOP.is_set():
+                line = proc.stdout.readline()
+                if not line:
+                    break
+                if os.environ.get("SSH_SYNC_DEBUG"):
+                    wlog(f"dbg: remote event: {line.strip()[:120]}")
+                _REMOTE_SIG.note()
+        finally:
+            if _FOREGROUND is not None:
+                _FOREGROUND.finish(proc)
+                _FOREGROUND.forget(proc)
+            else:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
+            proc.stdout.close()
+            _REMOTE_STREAM_PROC = None
         if _STOP.is_set():
             return
         ran = time.time() - started
@@ -1182,7 +1220,7 @@ def _diagnose_rsync_versions(cfg, host, remote_bin=None):
     receiver, which lands replicas unmarked."""
     notes = []
     try:
-        r = subprocess.run([RSYNC_BIN, "--version"], stdout=subprocess.PIPE,
+        r = _transport_run([RSYNC_BIN, "--version"], stdout=subprocess.PIPE,
                            text=True, timeout=15)
         lv = _rsync_version_tuple(r.stdout)
     except Exception:
@@ -1191,7 +1229,7 @@ def _diagnose_rsync_versions(cfg, host, remote_bin=None):
         # What rsync-over-ssh actually invokes on the remote (its
         # non-interactive PATH, or the pinned --rsync-path binary) — the
         # same resolution the transfers use.
-        r = subprocess.run(["ssh", "-F", cfg] + SSH_TIMEOUT_OPTS
+        r = _transport_run(["ssh", "-F", cfg] + ssh_options()
                            + [host, f"{remote_bin or 'rsync'} --version"],
                            stdout=subprocess.PIPE, text=True, timeout=30)
         rv = _rsync_version_tuple(r.stdout)
@@ -1217,7 +1255,7 @@ def _diagnose_remote_group(cfg, host):
     there, and can the ssh user (the same user rsync's receiver runs as)
     actually chgrp a file to it?"""
     notes = []
-    r = run(["ssh", "-F", cfg] + SSH_TIMEOUT_OPTS
+    r = run(["ssh", "-F", cfg] + ssh_options()
             + [host, f"getent group {REPLICA_GROUP} 2>/dev/null || "
                      f"dscl . -read /Groups/{REPLICA_GROUP} PrimaryGroupID "
                      f"2>/dev/null"],
@@ -1234,7 +1272,7 @@ def _diagnose_remote_group(cfg, host):
         '[ "$(stat -c %G "$f" 2>/dev/null || stat -f %Sg "$f")" '
         f'= "{REPLICA_GROUP}" ]; then rc=0; else rc=1; fi; '
         'rm -f "$f"; exit $rc')
-    r = run(["ssh", "-F", cfg] + SSH_TIMEOUT_OPTS + [host, script],
+    r = run(["ssh", "-F", cfg] + ssh_options() + [host, script],
             verbose=False, check=False, capture=True)
     if r.returncode != 0:
         notes.append(f"the ssh user on {host} cannot chgrp a file to "
@@ -1261,7 +1299,7 @@ def probe_rsync_chown_pipeline(cfg, host):
     try:
         with open(probe, "w"):
             pass
-        r = run(["ssh", "-F", cfg] + SSH_TIMEOUT_OPTS
+        r = run(["ssh", "-F", cfg] + ssh_options()
                 + [host, "mktemp -d"], verbose=False, check=False,
                 capture=True)
         if r.returncode != 0 or not (r.stdout or "").strip():
@@ -1278,7 +1316,7 @@ def probe_rsync_chown_pipeline(cfg, host):
                     f"{RSYNC_BIN} — a failing --chown transfer means "
                     f"replicas would land unmarked and the group gate "
                     f"breaks")
-        r = run(["ssh", "-F", cfg] + SSH_TIMEOUT_OPTS
+        r = run(["ssh", "-F", cfg] + ssh_options()
                 + [host, "stat -c %G -- "
                    f"{shlex.quote(remote_dir + '/probe')} 2>/dev/null || "
                    "stat -f %Sg -- "
@@ -1296,7 +1334,7 @@ def probe_rsync_chown_pipeline(cfg, host):
     finally:
         shutil.rmtree(probe_dir, ignore_errors=True)
         if remote_dir:
-            run(["ssh", "-F", cfg] + SSH_TIMEOUT_OPTS
+            run(["ssh", "-F", cfg] + ssh_options()
                 + [host, "rm -rf", "--", remote_dir],
                 verbose=False, check=False, capture=True)
 
@@ -1331,7 +1369,7 @@ def watch(args, cfg, host, local_dir, remote_dir):
     # Pin the remote rsync when the known-good location exists there (this
     # covers the remote program in BOTH pipeline directions).
     global _WATCH_REMOTE_RSYNC_OPTS
-    r = run(["ssh", "-F", cfg] + SSH_TIMEOUT_OPTS
+    r = run(["ssh", "-F", cfg] + ssh_options()
             + [host, f"test -x {PREFERRED_RSYNC}"],
             verbose=False, check=False)
     if r.returncode == 0:
@@ -1366,7 +1404,7 @@ def watch(args, cfg, host, local_dir, remote_dir):
         local_mode = "watchdog"
     else:
         local_mode = "none"
-    r = run(["ssh", "-F", cfg] + SSH_TIMEOUT_OPTS
+    r = run(["ssh", "-F", cfg] + ssh_options()
             + [host, "python3 -c 'import inotify_simple'"],
             args.verbose, check=False)
     if r.returncode != 0:
@@ -1395,7 +1433,9 @@ def watch(args, cfg, host, local_dir, remote_dir):
     signal.signal(signal.SIGTERM, _signal_handler)
     signal.signal(signal.SIGINT, _signal_handler)
 
+    global _WATCH_THREADS
     threads = []
+    _WATCH_THREADS = threads
     if local_mode == "inotify":
         t = threading.Thread(target=local_inotify_thread,
                              kwargs={"local_dir": local_dir}, daemon=True)
@@ -1474,12 +1514,13 @@ def watch(args, cfg, host, local_dir, remote_dir):
             wlog(f"stats: {_stats_line()}")
 
     wlog("stopping (SIGTERM/SIGINT) ...")
-    proc = _REMOTE_STREAM_PROC
-    if proc is not None:
-        proc.terminate()
-    for t in threads:
-        t.join(timeout=10)
-    wlog("stopped.")
+    if _FOREGROUND is None:
+        proc = _REMOTE_STREAM_PROC
+        if proc is not None:
+            proc.terminate()
+        for t in threads:
+            t.join(timeout=10)
+        wlog("stopped.")
 
 # ---------------------------------------------------------------------------
 
@@ -1556,6 +1597,9 @@ def main():
     sp_watch.add_argument("remote", metavar="host:remote_dir", nargs="?",
                           default=DEFAULT_REMOTE,
                           help=f"remote spec (default: {DEFAULT_REMOTE})")
+    sp_watch.add_argument("--foreground", action="store_true",
+                          help="external supervision: no persistent SSH master; "
+                               "reap direct transports before foreground exit")
     # 注：watch 故意不加 add_delete——常驻链路永不删除是传输契约（见 add_delete 注释）。
     add_common(sp_watch)
     sp_watch.add_argument("--interval", type=float,
@@ -1586,20 +1630,41 @@ def main():
         die("rsync not found in PATH; please install rsync first "
             "(e.g. `apt install rsync` / `yum install rsync`).")
 
-    host, remote_dir = parse_remote(args.remote)
-    cfg = ssh_config_path()
-    preflight(cfg, host)
-
-    if args.direction == "push":
-        do_push(cfg, host, args.local_dir, remote_dir, args)
-    elif args.direction == "pull":
-        do_pull(cfg, host, args.local_dir, remote_dir, args)
-    elif args.direction == "watch":
-        watch(args, cfg, host, args.local_dir, remote_dir)
-    else:  # both: push first, then pull
-        do_push(cfg, host, args.local_dir, remote_dir, args)
-        do_pull(cfg, host, args.local_dir, remote_dir, args)
-
+    global _FOREGROUND, _WATCH_THREADS
+    foreground = getattr(args, "foreground", False)
+    previous_signals = {}
+    if foreground:
+        _STOP.clear()
+        _WATCH_THREADS = []
+        _FOREGROUND = ForegroundTransport(_STOP)
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            previous_signals[sig] = signal.signal(sig, _signal_handler)
+    try:
+        host, remote_dir = parse_remote(args.remote)
+        cfg = ssh_config_path()
+        preflight(cfg, host)
+        if args.direction == "push":
+            do_push(cfg, host, args.local_dir, remote_dir, args)
+        elif args.direction == "pull":
+            do_pull(cfg, host, args.local_dir, remote_dir, args)
+        elif args.direction == "watch":
+            watch(args, cfg, host, args.local_dir, remote_dir)
+        else:  # both: push first, then pull
+            do_push(cfg, host, args.local_dir, remote_dir, args)
+            do_pull(cfg, host, args.local_dir, remote_dir, args)
+    except TransportStopped:
+        if not foreground or not _STOP.is_set():
+            raise
+    finally:
+        if foreground:
+            _STOP.set()
+            _FOREGROUND.close()
+            for thread in _WATCH_THREADS:
+                thread.join()
+            _FOREGROUND = None
+            for sig, handler in previous_signals.items():
+                signal.signal(sig, handler)
+            wlog("foreground direct transports reaped.")
     print("done.", file=sys.stderr)
 
 

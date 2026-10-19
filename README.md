@@ -46,6 +46,39 @@ anchors:
 
 loop 缺 replica 进程凭据时只经 `sg replica` 自愈一次；已尝试仍缺组或没有 sg 时，一行 ERROR 后退出，不进入重启热循环。`/etc/group` 有组不代表旧会话具有该凭据。watch 退出按 2s 起步、有界翻倍到 60s 退避；存活至少 60s 复位。TERM/INT 带走当前子进程。服务的 process match 应由部署方按实际独立源码入口装配，不沿用统一仓相对路径假设。
 
+## 显式前台运输：`watch --foreground`
+
+供外部监督器直接运行 `ssh-sync.py watch ... --foreground`，不套 `loop.sh`。
+旧 watch/一次性命令的默认SSH参数不变；不新增local传输入口或payload重启器。
+此入口不导入rund/agentd，不要求lease文件或继承私有FD。
+
+- 所有SSH路径（preflight、rsync `-e`、版本/诊断、probe、事件流）统一禁用
+  `ControlMaster`、`ControlPersist`和ControlPath复用，并关闭
+  `ForkAfterAuthentication`、`PermitLocalCommand`。配置必须由调用方控制，
+  不得配置会脱组/后台化的ProxyCommand/ProxyJump/Match exec等；这些选项
+  **不是任意SSH配置的安全审计/沙箱**，本候选没有验证实际OpenSSH版本。
+- 首条preflight前安装TERM/INT处理；停止后不准新运输spawn，已知直接Popen
+  的TERM/KILL后都真实wait。正常/异常/启动阶段都finally收口，并等探测线程
+  结束，才返回前台入口。不以发送信号或join超时等同于停止。
+- 通用前台命令预算30秒；原15/30秒诊断、600秒整树rsync预算保持。
+  大stdin使用非agents TMPDIR内的私有匿名临时缓冲，经fd 0传入后回收，
+  不是lease/协议文件；不增加stdin writer线程。旧默认运输不变。
+  真实wait或pipe EOF无法取得时根可能继续阻塞，留给外部监督器确认强leader
+  后对同组整体TERM/KILL；不猜退出码或以根Popen已退出证明远端退出。
+- 只管理本link持有的直接运输Popen，不持运行时状态、killpg、重启watch或
+  新后台worker。5→10→20→30秒事件流重连仍是业务重连，不是Service重试。
+- 覆盖政策/整树校验/原件保护/GC清单和探针实现不因该选项改变。尤其启动
+  probe仍含本地探针unlink和远端mktemp/rm，成功pull仍可应用GC清单；
+  `--dry-run`不代表无probe副作用。调用前仍须由调用方明确授权具体树与
+  probe/GC操作。前台运输候选不是完整Y/rund接线或真实同步授权。
+
+`test_foreground.py`仅运行隔离普通Python helper，记录真实Popen身份/退出码，
+覆盖大stdin重试、超时/停止、spawn登记竞窗、preflight信号、异常stream收口、
+SSH参数全调用点与纯函数保护。假SSH和合成helper结果不证明实际SSH/rsync
+派生树、远端退出、端到端group gate或数据一致性。测试根保留，不自动清理。
+该测试须显式设置 `Y_FOREGROUND_OUTPUT` 为全新绝对目录，再运行
+`python -B test_foreground.py`；它会创建私有HOME/TMPDIR/cwd，不可复用旧根。
+
 ## watch 轮次模型：整树协商 + 速率下限（同步面纪律）
 
 一轮始终是整树 push + 整树 pull；rsync `-c` 决定是否搬运。检测器只回答是否有变更，不存路径快照、不参与覆盖裁决。
@@ -55,7 +88,7 @@ loop 缺 replica 进程凭据时只经 `sg replica` 自愈一次；已尝试仍�
 - `--interval 30`：强制周期，也是任何变更重新锚定上界。树静默、检测器失效或远端断流也按周期运行。
 - 每轮重协商，无可吞写的基线；失败退避后重新整树协商。空转不写搬运日志，统计按 `--stats-every` 汇总；`SSH_SYNC_DEBUG=1` 可逐轮诊断。
 
-本地检测器：inotify_simple → watchdog/FSEvents → 无后端（仅周期驱动）。远端 SSH/inotify 流断开按 5/10/30s 重连，健康 60s 复位；远端缺 Python/inotify 则启动拒绝，不静默降级。SSH keepalive 防止半开连接无限阻塞。
+本地检测器：inotify_simple → watchdog/FSEvents → 无后端（仅周期驱动）。远端 SSH/inotify 流断开按 5/10/20/30s 重连，健康 60s 复位；远端缺 Python/inotify 则启动拒绝，不静默降级。SSH keepalive 防止半开连接无限阻塞。
 
 `WATCH_EXCLUDES=[]`：当前无额外排除；历史 `*.pending` 已无写者，排除管道仍保留。gc delete-list 路径永远排除；无运行时开关改变该安全语义。
 
