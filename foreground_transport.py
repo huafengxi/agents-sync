@@ -55,7 +55,7 @@ class ForegroundTransport:
             # stuck, keep this root alive for its external supervisor to stop.
             return proc.wait()
 
-    def run(self, argv, *, input=None, timeout=30, **kwargs):
+    def run(self, argv, *, input=None, timeout=None, **kwargs):
         if input is not None:
             if kwargs.pop('stdin', None) is not None:
                 raise ValueError('stdin and input may not both be supplied')

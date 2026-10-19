@@ -60,7 +60,9 @@ loop 缺 replica 进程凭据时只经 `sg replica` 自愈一次；已尝试仍�
 - 首条preflight前安装TERM/INT处理；停止后不准新运输spawn，已知直接Popen
   的TERM/KILL后都真实wait。正常/异常/启动阶段都finally收口，并等探测线程
   结束，才返回前台入口。不以发送信号或join超时等同于停止。
-- 通用前台命令预算30秒；原15/30秒诊断、600秒整树rsync预算保持。
+- 原15/30秒诊断、600秒整树rsync预算保持。原来没有总timeout的命令
+  仍不新增总timeout，避免把传输等待改成watch退出/Service重启；停止检查
+  不依赖是否配置总timeout。真实SSH预算闭包仍待调用方后续验证。
   大stdin使用非agents TMPDIR内的私有匿名临时缓冲，经fd 0传入后回收，
   不是lease/协议文件；不增加stdin writer线程。旧默认运输不变。
   真实wait或pipe EOF无法取得时根可能继续阻塞，留给外部监督器确认强leader

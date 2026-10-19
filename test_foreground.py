@@ -113,6 +113,10 @@ class ForegroundTests(unittest.TestCase):
         for s,h in self.signals.items():signal.signal(s,h)
         (self.area/'evidence.json').write_text(json.dumps(self.evidence,indent=2)+'\n')
 
+    def test_no_new_implicit_command_deadline(self):
+        import inspect
+        self.assertIsNone(inspect.signature(ft.ForegroundTransport.run).parameters['timeout'].default)
+
     def test_real_exit_nonzero(self):
         cmd,_=self.command('exit');r=self.manager.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env=ENV,cwd=self.area)
         self.assertEqual(r.returncode,7);self.assertEqual(self.manager.children,set())
