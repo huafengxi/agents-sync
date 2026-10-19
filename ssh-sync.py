@@ -90,12 +90,15 @@ Startup gates (watch refuses to start on any failure)
 Three gates, because only these three prove what the link needs:
 
 + local ``grp.getgrnam("replica")`` resolves (the group must exist here);
-+ local functional self-test: a probe file in the local dir can actually be
-  chgrped to ``replica`` (pull's landing mark depends on it, and rsync
-  would otherwise silently skip the marking);
++ local functional self-test: an inode in the local dir can actually be
+  chgrped to ``replica`` (foreground uses Linux O_TMPFILE, no linked name;
+  legacy uses a named file). Pull's landing mark depends on this; rsync
+  would otherwise silently skip the marking;
 + END-TO-END ``--chown`` pipeline probe: a probe file is really transferred
   with ``--chown=:replica`` into a remote scratch dir and the landed group
-  MUST be ``replica``.
+  MUST be ``replica``. Foreground requires explicit private same-filesystem
+  scratch roots; cleanup only removes owned nonce files/empty subdirectories,
+  never recursively deletes a supplied path. See README for authorization.
 
 The end-to-end probe subsumes "the group exists on the receiver", "the
 receiver's ssh user can chgrp to it" and "both rsync builds negotiate
@@ -228,6 +231,7 @@ except ImportError:
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from platform_paths import workspace_root
 from foreground_transport import ForegroundTransport, TransportStopped
+import probe_scratch
 from delete_contract import (GC_DIR_NAME, LIST_PREFIX as GC_LIST_PREFIX,
                              FORCE_MARK as GC_FORCE_MARK, GLOB_UNSAFE,
                              BARE_FAMILY_ENTRIES as GC_BARE_FAMILY_ENTRIES,
@@ -594,6 +598,12 @@ def check_replica_membership(local_dir, replica_gid):
     revocation / group recreation (new gid) after startup was invisible
     before — rsync would silently stop marking. Best-effort: any probe
     error counts as failure, never raises."""
+    if _FOREGROUND is not None:
+        try:
+            return probe_scratch.anonymous_membership(local_dir, replica_gid)
+        except (OSError, probe_scratch.ProbeError) as error:
+            wlog(f"foreground anonymous membership probe failed: {error}")
+            return False
     probe = os.path.join(local_dir, ".ssh-sync-chown-probe")
     try:
         with open(probe, "w") as f:
@@ -663,6 +673,7 @@ _STOP = threading.Event()          # set by SIGTERM/SIGINT
 _REMOTE_STREAM_PROC = None         # ssh subprocess of the remote event stream
 _FOREGROUND = None                 # opt-in direct transport children only
 _WATCH_THREADS = []                 # joined before foreground root exits
+_PROBE_SETTINGS = None              # explicit foreground scratch/data roots
 
 
 class ChangeSignal:
@@ -1249,11 +1260,50 @@ def _diagnose_rsync_versions(cfg, host, remote_bin=None):
     return notes
 
 
+def _probe_remote(cfg, host, request):
+    r = run(["ssh", "-F", cfg] + ssh_options()
+            + [host, probe_scratch.remote_command(request)],
+            verbose=False, check=False, capture=True)
+    if r.returncode != 0:
+        raise probe_scratch.ProbeError("remote probe failed: " + (r.stdout or "")[:1000])
+    return __import__('json').loads(r.stdout)
+
+
+def _foreground_pipeline(cfg, host):
+    settings = _PROBE_SETTINGS
+    try:
+        nonce = __import__('uuid').uuid4().hex
+        with probe_scratch.Probe(settings['localRoot'], settings['localData'], report=wlog, nonce=nonce) as local, \
+             probe_scratch.Probe(settings['remoteRoot'], settings['remoteData'],
+                                 call=lambda req: _probe_remote(cfg, host, req), report=wlog, nonce=nonce) as remote:
+            source = local.write()
+            cmd = ([RSYNC_BIN, "-c", "--protect-args", f"--chown=:{REPLICA_GROUP}"]
+                   + _WATCH_REMOTE_RSYNC_OPTS + _watch_ssh_e(cfg)
+                   + [str(source), f"{host}:{remote.path}/"])
+            r = run(cmd, verbose=False, check=False, capture=True)
+            if r.returncode != 0:
+                raise probe_scratch.ProbeError(f"foreground --chown pipeline transfer failed (exit {r.returncode})")
+            landed = remote.action('inspect')['group']
+            if landed != REPLICA_GROUP:
+                raise probe_scratch.ProbeError(f"foreground --chown pipeline landed group {landed!r}, expected {REPLICA_GROUP!r}")
+        return None
+    except (OSError, ValueError) as error:
+        return "foreground --chown pipeline: " + str(error)
+
+
 def _diagnose_remote_group(cfg, host):
     """DIAGNOSTIC (runs only after the end-to-end --chown probe failed):
     return one line per failed receiver-side check — does the group exist
     there, and can the ssh user (the same user rsync's receiver runs as)
     actually chgrp a file to it?"""
+    if _FOREGROUND is not None:
+        try:
+            with probe_scratch.Probe(_PROBE_SETTINGS['remoteRoot'], _PROBE_SETTINGS['remoteData'],
+                                     call=lambda req: _probe_remote(cfg, host, req), report=wlog) as remote:
+                remote.action('group', REPLICA_GROUP)
+            return []
+        except (OSError, ValueError) as error:
+            return ["foreground receiver group/chgrp diagnostic: " + str(error)]
     notes = []
     r = run(["ssh", "-F", cfg] + ssh_options()
             + [host, f"getent group {REPLICA_GROUP} 2>/dev/null || "
@@ -1293,6 +1343,8 @@ def probe_rsync_chown_pipeline(cfg, host):
 
     Returns None on success, or a one-line failure reason; the caller runs
     ``diagnose_chown_failure`` and refuses to start."""
+    if _FOREGROUND is not None:
+        return _foreground_pipeline(cfg, host)
     probe_dir = tempfile.mkdtemp(prefix="ssh-sync-chown-probe-")
     probe = os.path.join(probe_dir, "probe")
     remote_dir = None
@@ -1362,6 +1414,8 @@ def watch(args, cfg, host, local_dir, remote_dir):
     wlog(f"group gate: local {REPLICA_GROUP!r} group resolved "
          f"(gid {replica_gid})")
     os.makedirs(local_dir, exist_ok=True)
+    if _FOREGROUND is not None:
+        probe_scratch.validate_roots(_PROBE_SETTINGS['localRoot'], local_dir)
     probe_replica_membership(local_dir, replica_gid)
     wlog(f"group gate: chown self-test passed (the running user can chgrp "
          f"to {REPLICA_GROUP})")
@@ -1600,6 +1654,8 @@ def main():
     sp_watch.add_argument("--foreground", action="store_true",
                           help="external supervision: no persistent SSH master; "
                                "reap direct transports before foreground exit")
+    sp_watch.add_argument("--probe-root", help="existing private local scratch root; foreground only")
+    sp_watch.add_argument("--remote-probe-root", help="existing private remote scratch root; foreground only")
     # 注：watch 故意不加 add_delete——常驻链路永不删除是传输契约（见 add_delete 注释）。
     add_common(sp_watch)
     sp_watch.add_argument("--interval", type=float,
@@ -1626,12 +1682,17 @@ def main():
     if not args.remote:
         p.error("remote required: pass host:remote_dir or set AGENTS_SYNC_REMOTE for watch")
 
+    foreground = getattr(args, "foreground", False)
+    roots = (getattr(args, 'probe_root', None), getattr(args, 'remote_probe_root', None))
+    if foreground and (not all(roots) or not all(os.path.isabs(root) for root in roots)):
+        p.error("--foreground requires absolute --probe-root and --remote-probe-root")
+    if not foreground and any(roots):
+        p.error("probe roots are only accepted with --foreground")
     if shutil.which("rsync") is None:
         die("rsync not found in PATH; please install rsync first "
             "(e.g. `apt install rsync` / `yum install rsync`).")
 
-    global _FOREGROUND, _WATCH_THREADS
-    foreground = getattr(args, "foreground", False)
+    global _FOREGROUND, _WATCH_THREADS, _PROBE_SETTINGS
     previous_signals = {}
     if foreground:
         _STOP.clear()
@@ -1641,6 +1702,11 @@ def main():
             previous_signals[sig] = signal.signal(sig, _signal_handler)
     try:
         host, remote_dir = parse_remote(args.remote)
+        if foreground:
+            if not os.path.isabs(remote_dir):
+                p.error("foreground remote data directory must be absolute")
+            _PROBE_SETTINGS = {'localRoot':args.probe_root, 'remoteRoot':args.remote_probe_root,
+                               'localData':os.path.abspath(args.local_dir), 'remoteData':remote_dir}
         cfg = ssh_config_path()
         preflight(cfg, host)
         if args.direction == "push":
@@ -1662,6 +1728,7 @@ def main():
             for thread in _WATCH_THREADS:
                 thread.join()
             _FOREGROUND = None
+            _PROBE_SETTINGS = None
             for sig, handler in previous_signals.items():
                 signal.signal(sig, handler)
             wlog("foreground direct transports reaped.")

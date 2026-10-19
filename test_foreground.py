@@ -182,7 +182,9 @@ class ForegroundTests(unittest.TestCase):
     def main_patches(self):
         import contextlib
         stack=contextlib.ExitStack()
-        stack.enter_context(patch.object(sys,'argv',['ssh-sync.py','watch',str(self.area/'not-created'),'fixture:/not-used','--foreground']))
+        stack.enter_context(patch.object(sys,'argv',['ssh-sync.py','watch',str(self.area/'not-created'),'fixture:/not-used','--foreground',
+                                                     '--probe-root',str(self.area/'not-created-scratch'),
+                                                     '--remote-probe-root','/not-used/scratch']))
         stack.enter_context(patch.object(self.y.shutil,'which',return_value='/not-used'))
         stack.enter_context(patch.object(self.y,'ssh_config_path',return_value='/not-read/config'))
         return stack

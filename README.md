@@ -48,7 +48,9 @@ loop 缺 replica 进程凭据时只经 `sg replica` 自愈一次；已尝试仍�
 
 ## 显式前台运输：`watch --foreground`
 
-供外部监督器直接运行 `ssh-sync.py watch ... --foreground`，不套 `loop.sh`。
+供外部监督器直接运行 `ssh-sync.py watch ... --foreground --probe-root LOCAL --remote-probe-root REMOTE`，不套 `loop.sh`。
+两个scratch参数均须显式绝对路径，缺项/相对路径在首条preflight前拒绝；
+非foreground不接受这两个参数。旧前台候选的无scratch调用形状不能直接沿用。
 旧 watch/一次性命令的默认SSH参数不变；不新增local传输入口或payload重启器。
 此入口不导入rund/agentd，不要求lease文件或继承私有FD。
 
@@ -69,10 +71,10 @@ loop 缺 replica 进程凭据时只经 `sg replica` 自愈一次；已尝试仍�
   后对同组整体TERM/KILL；不猜退出码或以根Popen已退出证明远端退出。
 - 只管理本link持有的直接运输Popen，不持运行时状态、killpg、重启watch或
   新后台worker。5→10→20→30秒事件流重连仍是业务重连，不是Service重试。
-- 覆盖政策/整树校验/原件保护/GC清单和探针实现不因该选项改变。尤其启动
-  probe仍含本地探针unlink和远端mktemp/rm，成功pull仍可应用GC清单；
-  `--dry-run`不代表无probe副作用。调用前仍须由调用方明确授权具体树与
-  probe/GC操作。前台运输候选不是完整Y/rund接线或真实同步授权。
+- 覆盖政策/整树校验/原件保护/GC清单保持；前台探针使用下节明确的隔离
+  scratch。成功pull仍可应用GC清单，`--dry-run`不代表无probe副作用。
+  调用前仍须由调用方明确授权具体树、scratch清理及GC操作；本候选不是
+  完整Y/rund接线或真实同步授权。
 
 `test_foreground.py`仅运行隔离普通Python helper，记录真实Popen身份/退出码，
 覆盖大stdin重试、超时/停止、spawn登记竞窗、preflight信号、异常stream收口、
@@ -80,6 +82,36 @@ SSH参数全调用点与纯函数保护。假SSH和合成helper结果不证明�
 派生树、远端退出、端到端group gate或数据一致性。测试根保留，不自动清理。
 该测试须显式设置 `Y_FOREGROUND_OUTPUT` 为全新绝对目录，再运行
 `python -B test_foreground.py`；它会创建私有HOME/TMPDIR/cwd，不可复用旧根。
+
+## 前台探针的边界
+
+- 本地目录能力仍在实际同步目录验证：Linux `O_TMPFILE`匿名inode上fchown，
+  再核gid/device/nlink；不创建可同步文件名，不unlink agents。系统或FS不支持
+  就明确拒绝，不用外部目录测试冒充数据目录的原功能检查。当前新增路径
+  只验证Linux；单点检查不担保整棵数据树每个文件的ACL或写权限。
+- pipeline本地和远端scratch由调用方提前创建，须为本uid所有、0700、无符号
+  链接的真实目录，位于对应同步树之外且同filesystem。远端同步根也须已存在；
+  服务不能依赖同步器先同步其自身配置/代码/scratch。其他协议树须由调用方
+  排除，机制只知道此link显式给出的同步根，不猜全机哪些目录是agents。
+- 每次独占创建随机nonce子目录，传32字节nonce内容，落地后核内容与实际组。
+  probe rsync附`--protect-args`保护scratch路径；实际客户端/receiver能力仍需
+  caller验证，不因本地模拟测试而声称兼容任意版本。
+- local/remote共用同一`probe_scratch.py`实现；远端执行其自包含Python入口。
+  client只使用自己根+nonce推导路径，必须确认create回复匹配才允许cleanup；
+  不把任意stdout当删除路径。diagnostic也走该边界，无额外默认远端mktemp。
+- 清理只unlink已知、自有、单链接regular且nonce内容匹配的probe，再rmdir空
+  子目录；不递归rm、不删caller根/未知项、不跟随symlink/hardlink。出现未知
+  内容先拒绝，不靠清理输入制造绿。此为合作同UID边界，不是对恶意同UID竞速
+  的安全沙箱；调用方必须授权这些scratch操作。
+- stop后不启动清理helper；丢回复/停止/清理失败可能留下scratch，仅报告
+  未确认/可能遗留，不盲重放、不加后台GC/补偿worker。原始传输失败和清理
+  问题分账，不以最后cleanup成功抹去前件失败。
+
+普通非foreground watch保留旧探针实现（含本地文件unlink、远端mktemp/rm），
+未迁移到本新路径。`test_probe_scratch.py`要求显式`Y_PROBE_OUTPUT`为新绝对目录，
+**执行前须授权其中自建probe文件及空子目录清理**；其远端程序只在本机Python
+模拟，传输用copy stub，不运行SSH/rsync/GC。根、未知/失败fixture与证据保留，
+成功临时probe按已授权边界删除；不把这些测试算真实跨机group gate PASS。
 
 ## watch 轮次模型：整树协商 + 速率下限（同步面纪律）
 
