@@ -257,7 +257,7 @@ class ForegroundTests(unittest.TestCase):
         self.assertEqual(y.unmarked_files(root,gid),(['original'],True))
         with patch.object(y.os,'lstat',side_effect=PermissionError('synthetic ownership read failure')):
             self.assertEqual(y.unmarked_files(root,gid),([],False))
-        with patch.object(y,'gc_exclude_and_targets',return_value=([],[],[])),patch.object(y,'unmarked_files',return_value=(['unsafe*'],True)),patch.object(y,'_transport_run',side_effect=AssertionError('no transfer allowed')):
+        with patch.object(y,'gc_exclude_and_targets',return_value=([],[],[])),patch.object(y,'unmarked_files',return_value=(['unsafe\nname'],True)),patch.object(y,'_transport_run',side_effect=AssertionError('no transfer allowed')):
             self.assertEqual(y.watch_rsync('/not-read','fixture',str(root),'/not-used',SimpleNamespace(verbose=False),'pull',gid),(False,0))
 
     def test_watch_still_refuses_delete_and_oneshot_foreground(self):

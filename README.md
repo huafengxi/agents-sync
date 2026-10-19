@@ -14,7 +14,7 @@ anchors:
 
 星型拓扑，每个节点只运行自己到同一 neutral hub 的一条双向链路。hub 无原件：受控落盘一律属 `replica` 组。每个文件恰有一个可能写者；未标记 = 本机原件，`replica` = 同步落地的副本，**不以时间戳裁决覆盖**。组名跨机一致，gid 无需一致。
 
-- push 白名单 = 本地未标记文件；pull 保护清单 = 本地未标记文件。
+- push 白名单 = 本地未标记普通文件；pull 保护清单也包含未标记symlink/特殊文件，真实目录不承担原件组状态。
 - watch 固定 `-rlptDvc`、`--chown=:replica`，不使用 `-I`，也不接受 `--delete`。相同字节不重写，副本不回推。
 - 原件属组不可读或路径无法安全编码时，整轮 pull 拒绝，不允许保护清单缺项。
 - pull 后按 rsync 报出的已传输集补打组标记；macOS 目录恢复主组，避免目录组继承把新原件误判为副本。
@@ -62,7 +62,7 @@ loop 缺 replica 进程凭据时只经 `sg replica` 自愈一次；已尝试仍�
 - 首条preflight前安装TERM/INT处理；停止后不准新运输spawn，已知直接Popen
   的TERM/KILL后都真实wait。正常/异常/启动阶段都finally收口，并等探测线程
   结束，才返回前台入口。不以发送信号或join超时等同于停止。
-- 原15/30秒诊断、600秒整树rsync预算保持。原来没有总timeout的命令
+- 原15/30秒诊断、600秒整树rsync及独立hub清单获取预算保持。原来没有总timeout的命令
   仍不新增总timeout，避免把传输等待改成watch退出/Service重启；停止检查
   不依赖是否配置总timeout。真实SSH预算闭包仍待调用方后续验证。
   大stdin使用非agents TMPDIR内的私有匿名临时缓冲，经fd 0传入后回收，
@@ -115,7 +115,33 @@ SSH参数全调用点与纯函数保护。假SSH和合成helper结果不证明�
 
 ## watch 轮次模型：整树协商 + 速率下限（同步面纪律）
 
+本独立候选消费固定上游agent-platform `7cc9c105523dcee7089b65ca2a62c2cff9227ac6`
+（含dc43全树清单、556db literal glob、63ed测量边界及7cc9 minimal tree修正），
+不导入该仓/sibling，不改另一调用方的代码或部署。
+
 一轮始终是整树 push + 整树 pull；rsync `-c` 决定是否搬运。检测器只回答是否有变更，不存路径快照、不参与覆盖裁决。
+
+pull每轮SSH/Python扫描hub全树NUL清单，不跟随symlink；本机原件、有效GC和排除
+路径以hash/祖先关系过滤，之后minimal_pull_tree只省去已由后代隐含携带的祖先。
+空叶目录仍显式列出，所有发送路径无尾斜杠，使用`--files-from=- --from0
+--no-recursive --dirs`；不关sender validation、不加`--trust-sender`，不声称
+native receiver过滤开销线性。先过滤后缩减，不缩小同步面或引入跨轮候选账本。
+
+`*?[]`在数据清单/原件集合中是字面字符，不是glob保护模式；GC仍按独立删除契约
+的GLOB_UNSAFE拒绝通配模式元字符/换行，不采用数据清单的字面传输语义。绝对/空/dot/dot-dot分量、边缘空白、反斜杠、控制/非打印/非UTF8
+名字整轮拒绝，不规范化或静默漏保护。扫描/清单/传输失败不应用GC，下一轮重新
+扫描；成功传输后重读新清单，空选择也保持一次传输/GC对账，dry-run不删。
+
+新增remote_manifest和重叠watch_rsync只将调用路由到既有ssh_options与
+_transport_run：前台统一禁master并拥有/收口Popen，默认仍旧subprocess.run。
+保留上游两个独立600秒预算和数据/标记政策；本候选没有重新做性能算法。
+
+`test_manifest_foreground.py`的12个纯选择/缩减测试体来自上述固定输入；新增
+合成前台测试只运行本机Python、mock数据落地/GC，不执行真实SSH/rsync/GC，
+无agentd.safe_delete测试依赖。显式设置`Y_MANIFEST_OUTPUT`为新绝对输出目录，
+所有命名fixture/源码/日志保留，无rmtree/TemporaryDirectory清场。测试证明
+路由、NUL/UTF8 stdin、失败/停止与真实wait边界，不是实际sender validation、
+整树ACL、跨机性能或数据原件保护端到端PASS。
 
 - `--debounce 0.5`：首个未消费事件窗口，持续 churn 不会无限延迟。
 - `--min-cycle 3`：轮次速率下限。
