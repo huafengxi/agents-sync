@@ -57,10 +57,7 @@ def _load(name, path):
     return mod
 
 
-# Fixture topology is injected, never inherited from the caller's deployment.
-from unittest.mock import patch
-with patch.dict(os.environ, {"AGENTS_SYNC_HUB": "dev"}):
-    rt = _load("replica_tag", os.path.join(_HERE, "replica-tag.py"))
+rt = _load("replica_tag", os.path.join(_HERE, "replica-tag.py"))
 
 PASS = 0
 FAIL = []

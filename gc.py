@@ -6,8 +6,9 @@ Background
 ==========
 The cross-machine agents/ sync mesh never passes ``--delete``: a file
 deleted on the hub survives on every node forever, and the star hub
-is purely passive (hub = a caller-configured NEUTRAL DIRECTORY on
-the hub host — zero-originals invariant). This tool is the agreed
+is purely passive (hub = NEUTRAL DIRECTORY ``/data/shared/agents`` on
+the hub host — zero-originals invariant; before
+that ``~/m/agents`` on dev, originally nv1). This tool is the agreed
 mechanism for
 propagating deletions: an EXPLICIT DELETE LIST consumed by the pull
 side of ``agents-sync/ssh-sync.py watch`` (which excludes listed paths from
@@ -142,11 +143,12 @@ Usage (ON THE HUB):
     (PATH is relative to agents/: a file, or a directory with a
      trailing slash, e.g. ``0828-0000-xxxx/``)
 
-Hub directory resolution: invoke on the hub HOST; the authoritative
-tree is its caller-configured neutral directory. Priority:
-``GC_AGENTS_DIR`` > explicit ``GC_WORKSPACE``/agents (test compatibility)
-> ``AGENTS_SYNC_HUB_DIR`` when it exists > ``<workspace>/agents``.
-Deployment must inject the actual neutral directory; none is hardcoded.
+Hub directory resolution (hub neutralization): the GC
+execution point stays the hub HOST (dev) but the authoritative tree
+moved to the neutral directory ``/data/shared/agents``. Priority:
+``GC_AGENTS_DIR`` (explicit override) > explicit ``GC_WORKSPACE``/agents
+(test compatibility) > the neutral directory when it exists >
+``<workspace>/agents``.
 
 Hub zero-originals invariant: every file gc.py writes
 onto the hub (the delete lists) is chgrp'd to the ``replica`` group at
@@ -172,6 +174,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from platform_paths import workspace_root
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from delete_contract import (GC_DIR_NAME, LIST_PREFIX, GLOB_UNSAFE,
                              BARE_FAMILY_ENTRIES, PROTECTED_SYSTEM_PATHS,
                              FORCE_MARK, split_force, validate_path as validate_delete_path)
@@ -195,9 +198,11 @@ DEFAULT_DELAY = 300.0  # seconds; see module docstring for rationale
 # PROTECTED_SYSTEM_PATHS from the shared deletion contract.
 FORBIDDEN_LAYOUT_DIRS = ()
 
-# Caller-supplied neutral directory on the hub host (zero-originals).
-# Used when present; GC_AGENTS_DIR / explicit GC_WORKSPACE win.
-NEUTRAL_HUB_DIR = os.environ.get("AGENTS_SYNC_HUB_DIR", "")
+# Hub neutral directory: the authoritative
+# agents/ tree moved out of the participant workspace to this neutral
+# path on the hub host (hub zero-originals invariant). Used by main
+# resolution when present; GC_AGENTS_DIR / explicit GC_WORKSPACE win.
+NEUTRAL_HUB_DIR = "/data/shared/agents"
 
 # Audit field values must stay in this alphabet (no spaces, no '/';
 # the entry must stay one line and one rsync-safe path).
@@ -501,7 +506,7 @@ def write_list(agents_dir, seq, entries):
 def resolve_agents_dir(ws):
     """Hub agents/ tree resolution: GC_AGENTS_DIR
     (explicit) > explicit GC_WORKSPACE/agents (test compat) > the
-    caller-configured neutral hub directory when it exists > <workspace>/agents."""
+    neutral hub directory when it exists > <workspace>/agents."""
     env = os.environ.get("GC_AGENTS_DIR")
     if env:
         return os.path.abspath(env)

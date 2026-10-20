@@ -175,11 +175,11 @@ ticket field maps to a host as follows, in order:
   spec.json (``task/<id>/spec.json``); no spec -> unknown
 + anything else                            -> unknown
 
-``hub`` = caller-supplied canonical name ``AGENTS_SYNC_HUB`` — the machine
-hosting the neutral hub directory (loop.sh's ``AGENTS_SYNC_REMOTE``),
-the dispatcher/resident sessions and the single global scheduler
-(only one machine declares ``scheduler``). Deployment keeps these identities
-consistent; no host is hardcoded in this source repository.
+``hub`` = canonical name ``dev`` — the machine hosting the neutral hub
+directory ``dev:/data/shared/agents`` (agents-sync/loop.sh
+``REMOTE``), the dispatcher/resident sessions and the single global
+scheduler (only one machine declares ``scheduler``). It was ``nv1`` until
+the hub migration (agents-sync v7 → v8).
 
 UNKNOWN files stay UNMARKED (failure is asymmetric: worst case a
 stale replica lingers, never data loss).
@@ -216,9 +216,13 @@ sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from platform_paths import workspace_root
 
 _WORKSPACE = workspace_root(__file__)
-# Same caller-supplied canonical hub as the link and the global scheduler.
-# Writer resolution rules and conservative UNKNOWN behavior are unchanged.
-HUB = os.environ.get("AGENTS_SYNC_HUB")
+# Hub = the machine hosting the neutral hub directory
+# dev:/data/shared/agents (agents-sync/loop.sh REMOTE), the
+# dispatcher/resident sessions, the IM bridge sessions and the single
+# global agentd scheduler (declared on one machine only). It was
+# nv1 until the hub migration — see the writer
+# resolution rules in the docstring.
+HUB = "dev"
 # enable.json writer id of the scheduling side (agentd/scheduler.py
 # SCHEDULER_ID, protocol §14.2).
 SCHEDULER_ID = "agentd-scheduler"
@@ -837,8 +841,6 @@ def main():
     p.add_argument("--apply", action="store_true",
                    help="actually chown (default: dry run)")
     args = p.parse_args()
-    if not HUB:
-        p.error("set AGENTS_SYNC_HUB to the canonical hub host identity")
 
     root = os.path.abspath(args.root)
     if not os.path.isdir(root):

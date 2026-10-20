@@ -1,0 +1,25 @@
+{
+  "taskId": "6ggidb",
+  "platformRevision": "5919d933289d795ef4df7616659e7943e7f6f494",
+  "module": "agents-sync",
+  "base": "86a1da8340ccfc195fc2bda9d2e991beee82416e",
+  "files": [
+    ".gitignore",
+    "bench_pull_manifest.py",
+    "delete_contract.py",
+    "gc.py",
+    "loop.sh",
+    "mac-rsync-patch/install.sh",
+    "mac-rsync-patch/rsync-chown-dirs-skip.patch",
+    "mac-rsync-patch/rsync-getgrouplist.patch",
+    "mac-rsync-patch/rsync.rb",
+    "replica-tag.py",
+    "test_delete_contract.py",
+    "test_gc.py",
+    "test_minimal_tree.py",
+    "test_protect.py",
+    "test_pull_manifest.py",
+    "test_replica_tag.py",
+    "test_watch.py"
+  ]
+}
