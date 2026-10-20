@@ -294,7 +294,10 @@ def ssh_options():
         return list(SSH_TIMEOUT_OPTS)
     return SSH_TIMEOUT_OPTS[:8] + [
         "-o", "ControlMaster=no", "-o", "ControlPath=none",
-        "-o", "ControlPersist=no", "-o", "ForkAfterAuthentication=no",
+        "-o", "ControlPersist=no",
+        # OpenSSH <8.7 has no ForkAfterAuthentication config key (nor -f here).
+        "-o", "IgnoreUnknown=ForkAfterAuthentication",
+        "-o", "ForkAfterAuthentication=no",
         "-o", "PermitLocalCommand=no"]
 
 

@@ -185,3 +185,8 @@ AGENTS_SYNC_HUB="$HUB_ID" python3 ./replica-tag.py --root "$TEST_AGENTS" --self 
 `recovery/source-refs.json` 保存原 ref/OID/来源映射，`source-map.json` 逐 first-parent source 记录投影与 no-op，`projection-checks.json` 逐路径给适配前 blob/mode。原 main 是恢复 main 祖先；适配在投影后独立提交。保全 refs 不随 main 推进覆盖。
 
 `mac-rsync-patch/` 是继承的可选平台补丁，未在本次恢复中安装或发布。部署/服务版本与激活由外部部署仓管理，本源码交付不代表任何生产切换。
+
+Foreground SSH compatibility: OpenSSH before 8.7 lacks the ForkAfterAuthentication
+configuration key. IgnoreUnknown names only that key, before its explicit no
+setting; no -f is passed. New clients enforce no, old clients ignore the absent
+feature. ControlMaster/ControlPath/ControlPersist/PermitLocalCommand remain explicit.

@@ -164,6 +164,7 @@ class ForegroundTests(unittest.TestCase):
         for option in ('ControlMaster=no','ControlPath=none','ControlPersist=no','ForkAfterAuthentication=no','PermitLocalCommand=no'):
             self.assertIn(option,opts)
         self.assertNotIn('ControlMaster=auto',opts)
+        self.assertLess(opts.index('IgnoreUnknown=ForkAfterAuthentication'), opts.index('ForkAfterAuthentication=no'))
         import shlex
         e=shlex.split(y._watch_ssh_e('/not read/config with spaces')[1])
         self.assertEqual(e[:3],['ssh','-F','/not read/config with spaces'])
