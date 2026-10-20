@@ -1245,8 +1245,11 @@ def add(d):
     except OSError:
         pass
 add(root)
-while True:
-    for ev in ino.read():
+# SSH channel loss can orphan a non-PTY command without delivering SIGHUP.
+# Observe the original parent while the existing event loop is idle too.
+owner = os.getppid()
+while owner != 1 and os.getppid() == owner:
+    for ev in ino.read(timeout=1000):
         if ev.mask & F.Q_OVERFLOW:
             out('EV overflow')
             continue

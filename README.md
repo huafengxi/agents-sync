@@ -190,3 +190,8 @@ Foreground SSH compatibility: OpenSSH before 8.7 lacks the ForkAfterAuthenticati
 configuration key. IgnoreUnknown names only that key, before its explicit no
 setting; no -f is passed. New clients enforce no, old clients ignore the absent
 feature. ControlMaster/ControlPath/ControlPersist/PermitLocalCommand remain explicit.
+
+The Linux remote inotify command checks its original parent between reads
+(with a one-second read timeout). If SSH exits and it is reparented, it exits
+too. This bounds the observed orphan case without a helper/thread or a remote
+kill protocol; it does not establish remote wait/exit-code ownership.
