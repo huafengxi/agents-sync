@@ -85,10 +85,11 @@ SSH参数全调用点与纯函数保护。假SSH和合成helper结果不证明�
 
 ## 前台探针的边界
 
-- 本地目录能力仍在实际同步目录验证：Linux `O_TMPFILE`匿名inode上fchown，
-  再核gid/device/nlink；不创建可同步文件名，不unlink agents。系统或FS不支持
-  就明确拒绝，不用外部目录测试冒充数据目录的原功能检查。当前新增路径
-  只验证Linux；单点检查不担保整棵数据树每个文件的ACL或写权限。
+- Linux在实际同步目录的`O_TMPFILE`匿名inode上fchown，再核gid/device/nlink；
+  不支持就明确拒绝，不以其他目录冒充该测试。Darwin没有O_TMPFILE：显式核
+  数据根effective write/search access，并在同filesystem的私有scratch独占创建
+  nonce探针、fchown和核组后按下述边界清理。两项事实分别报告；它们均不担保
+  整棵数据树每个文件的ACL或写权限。两平台仍须真实pipeline group gate。
 - pipeline本地和远端scratch由调用方提前创建，须为本uid所有、0700、无符号
   链接的真实目录，位于对应同步树之外且同filesystem。远端同步根也须已存在；
   服务不能依赖同步器先同步其自身配置/代码/scratch。其他协议树须由调用方

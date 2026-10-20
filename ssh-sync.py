@@ -111,9 +111,9 @@ Startup gates (watch refuses to start on any failure)
 Three gates, because only these three prove what the link needs:
 
 + local ``grp.getgrnam("replica")`` resolves (the group must exist here);
-+ local functional self-test: an inode in the local dir can actually be
-  chgrped to ``replica`` (foreground uses Linux O_TMPFILE without a linked
-  name; default uses the legacy named probe). Pull's marking depends on it;
++ local functional self-test: chgrp to ``replica`` succeeds (Linux foreground
+  uses O_TMPFILE in the data root; Darwin checks data-root access and chgrp
+  in explicit same-filesystem scratch; default uses a named data-root probe);
 + END-TO-END ``--chown`` pipeline probe: a probe file is really transferred
   with ``--chown=:replica`` into a remote scratch dir and the landed group
   MUST be ``replica``. Foreground uses explicit caller-authorized private
@@ -633,9 +633,9 @@ def check_replica_membership(local_dir, replica_gid):
     error counts as failure, never raises."""
     if _FOREGROUND is not None:
         try:
-            return probe_scratch.anonymous_membership(local_dir, replica_gid)
+            return probe_scratch.membership(local_dir, replica_gid, _PROBE_SETTINGS['localRoot'], report=wlog)
         except (OSError, probe_scratch.ProbeError) as error:
-            wlog(f"foreground anonymous membership probe failed: {error}")
+            wlog(f"foreground membership probe failed: {error}")
             return False
     probe = os.path.join(local_dir, ".ssh-sync-chown-probe")
     try:

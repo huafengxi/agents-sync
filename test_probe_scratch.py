@@ -101,6 +101,16 @@ class ProbeTests(unittest.TestCase):
             self.assertFalse(self.y.check_replica_membership(str(self.local/'data'),os.getegid()))
         self.assertFalse((self.local/'data/.ssh-sync-chown-probe').exists())
 
+    def test_darwin_membership_uses_private_scratch_and_access(self):
+        data=self.local/'data';scratch=self.local/'scratch';before=set(data.iterdir())
+        with patch.object(ps.sys,'platform','darwin'):
+            self.assertTrue(ps.membership(data,os.getegid(),scratch))
+            with patch.object(ps.os,'access',return_value=False):
+                with self.assertRaisesRegex(ps.ProbeError,'effective'):
+                    ps.membership(data,os.getegid(),scratch)
+        self.assertEqual(set(data.iterdir()),before)
+        self.assertEqual(list(scratch.iterdir()),[])
+
     def test_local_probe_known_content_cleanup(self):
         with ps.Probe(self.local/'scratch',self.local/'data') as probe:
             p=probe.write();self.assertEqual(p.read_bytes(),probe.req['nonce'].encode())

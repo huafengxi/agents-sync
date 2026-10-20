@@ -52,6 +52,26 @@ def anonymous_membership(data, gid):
         os.close(fd)
 
 
+def membership(data, gid, scratch, report=None):
+    """Check real chgrp without ever linking a probe in the synced tree.
+
+    Darwin has no O_TMPFILE. Its same-filesystem private scratch verifies
+    chgrp; effective write/search access to the data root is checked separately.
+    The ordinary rsync pipeline still verifies receiver group marking.
+    """
+    if sys.platform != 'darwin':
+        return anonymous_membership(data, gid)
+    validate_roots(scratch, data)
+    if not os.access(data, os.W_OK | os.X_OK, effective_ids=True):
+        raise ProbeError('data root lacks effective write/search access')
+    group = grp.getgrgid(gid).gr_name
+    with Probe(scratch, data, report=report) as probe:
+        result = probe.action('group', group)
+        if result.get('group') != group:
+            raise ProbeError('scratch membership group mismatch')
+    return True
+
+
 def _regular(path):
     st = path.lstat()
     if (not stat.S_ISREG(st.st_mode) or st.st_nlink != 1 or
