@@ -10,6 +10,12 @@ anchors:
 
 本公开仓只住机制与测试。真实主机、neutral hub 路径、SSH 配置、服务装配与启动入口由调用方注入；修改部署不应产生本仓 diff。源码可独立 checkout，无需统一平台仓或 sibling 模块；不含服务切换或自动激活工具。
 
+## 共享运行根
+
+同步根由调用方显式提供，可同时包含 services、tasks、configs、scheduling 与 agents 业务树；运输不解释文件正文。原件/副本写权适用于整棵树。统一根的删除清单位于 gc/，agent 路径写为 agents/task/<id>/ 等带前缀路径。
+
+watch --foreground --once 执行一次完整 group gate 与 push/pull 后退出。调用方为同一链路提供相同的 --cycle-lock 绝对私有路径，常驻和一次性调用以 flock 串行执行完整轮次；锁位于同步根之外。
+
 ## 拓扑与文件身份
 
 星型拓扑，每个节点只运行自己到同一 neutral hub 的一条双向链路。hub 无原件：受控落盘一律属 `replica` 组。每个文件恰有一个可能写者；未标记 = 本机原件，`replica` = 同步落地的副本，**不以时间戳裁决覆盖**。组名跨机一致，gid 无需一致。

@@ -2,8 +2,8 @@
 GC_DIR_NAME = "gc"
 LIST_PREFIX = "delete-list."
 GLOB_UNSAFE = frozenset("*?[\n")
-BARE_FAMILY_ENTRIES = ("agents", "task", "bot", "topic", "queue", "run")
-PROTECTED_SYSTEM_PATHS = ("topic/dispatcher", "queue/dispatcher")
+BARE_FAMILY_ENTRIES = ("agents", "task", "bot", "topic", "queue", "run", "services", "tasks", "configs")
+PROTECTED_SYSTEM_PATHS = ("topic/dispatcher", "queue/dispatcher", "agents/topic/dispatcher", "agents/queue/dispatcher")
 FORCE_MARK = " #FORCED:"
 
 
@@ -42,6 +42,8 @@ def validate_path(e, force=False):
                 "directory (task/<id>/, bot/<name>/, topic/<id>/, queue/<name>/). "
                 "Refused even with --force; un-refuse = edit "
                 "BARE_FAMILY_ENTRIES in agents-sync/delete_contract.py")
+    if len(parts) == 2 and parts[0] == 'agents' and parts[1] in BARE_FAMILY_ENTRIES:
+        return 'refusing a bare agent family container'
     if not force:
         for prot in PROTECTED_SYSTEM_PATHS:
             pp = prot.strip("/").split("/")

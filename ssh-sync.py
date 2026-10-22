@@ -1548,6 +1548,28 @@ def diagnose_chown_failure(cfg, host, remote_bin=None):
              "suspect the rsync pair itself (rerun with -v to see the "
              "transfer)")
 
+def watch_cycle(args, cfg, host, local_dir, remote_dir, replica_gid):
+    """Serialize a complete push/pull pair with other invocations of this link."""
+    import fcntl
+    fd = None
+    try:
+        if getattr(args, 'cycle_lock', None):
+            fd = os.open(args.cycle_lock, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+            while True:
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except BlockingIOError:
+                    if _STOP.wait(.1):
+                        raise TransportStopped()
+        ok_push, n_push = watch_rsync(cfg, host, local_dir, remote_dir, args, 'push', replica_gid)
+        ok_pull, n_pull = watch_rsync(cfg, host, local_dir, remote_dir, args, 'pull', replica_gid)
+        return ok_push and ok_pull, n_push, n_pull
+    finally:
+        if fd is not None:
+            os.close(fd)
+
+
 def watch(args, cfg, host, local_dir, remote_dir):
     interval = args.interval
     debounce = args.debounce
@@ -1595,6 +1617,12 @@ def watch(args, cfg, host, local_dir, remote_dir):
         wlog(f"warning: watch mode ignores --exclude (the only sync-face "
              f"exclusions are the built-in {WATCH_EXCLUDES or '(none)'}); "
              f"got {args.exclude!r}")
+
+    if getattr(args, 'once', False):
+        ok, _, _ = watch_cycle(args, cfg, host, local_dir, remote_dir, replica_gid)
+        if not ok:
+            die('one-shot alignment failed')
+        return
 
     # --- Detectors ------------------------------------------------------
     if HAVE_INOTIFY:
@@ -1656,12 +1684,8 @@ def watch(args, cfg, host, local_dir, remote_dir):
     # alignment can be swallowed: the first loop cycle re-negotiates the
     # whole tree and picks it up.
     wlog("initial alignment: push ...")
-    ok_push, _n = watch_rsync(cfg, host, local_dir, remote_dir, args,
-                              "push", replica_gid)
-    wlog("initial alignment: pull ...")
-    ok_pull, _n = watch_rsync(cfg, host, local_dir, remote_dir, args,
-                              "pull", replica_gid)
-    if not (ok_push and ok_pull):
+    ok, _, _ = watch_cycle(args, cfg, host, local_dir, remote_dir, replica_gid)
+    if not ok:
         wlog("warning: initial alignment had errors; continuing anyway "
              "(loop errors are non-fatal)")
 
@@ -1686,15 +1710,12 @@ def watch(args, cfg, host, local_dir, remote_dir):
         _, n_local = _LOCAL_SIG.take()
         _, n_remote = _REMOTE_SIG.take()
         t0 = time.time()
-        ok_push, n_push = watch_rsync(cfg, host, local_dir, remote_dir,
-                                      args, "push", replica_gid)
-        ok_pull, n_pull = watch_rsync(cfg, host, local_dir, remote_dir,
-                                      args, "pull", replica_gid)
+        ok, n_push, n_pull = watch_cycle(args, cfg, host, local_dir, remote_dir, replica_gid)
         took = time.time() - t0
         now = time.time()
         next_forced = now + interval     # any cycle re-anchors everything
         next_allowed = now + min_cycle
-        if not (ok_push and ok_pull):
+        if not ok:
             # Nothing to re-queue — a cycle is whole-tree, so the next one
             # re-negotiates everything. Back off to the safety-net cadence
             # instead of hot-looping on a hard failure (hub down, group
@@ -1796,6 +1817,8 @@ def main():
     sp_watch.add_argument("remote", metavar="host:remote_dir", nargs="?",
                           default=DEFAULT_REMOTE,
                           help=f"remote spec (default: {DEFAULT_REMOTE})")
+    sp_watch.add_argument("--once", action="store_true", help="one group-gated push/pull pair, then exit")
+    sp_watch.add_argument("--cycle-lock", help="absolute private lock shared by all invocations of this link")
     sp_watch.add_argument("--foreground", action="store_true",
                           help="external supervision: no persistent SSH master; "
                                "reap direct transports before foreground exit")
@@ -1824,6 +1847,11 @@ def main():
                                f"{DEFAULT_STATS_EVERY:.0f})")
 
     args = p.parse_args()
+    if getattr(args, 'cycle_lock', None):
+        lock_path = os.path.abspath(args.cycle_lock)
+        data_path = os.path.abspath(args.local_dir)
+        if not os.path.isabs(args.cycle_lock) or os.path.commonpath((lock_path, data_path)) == data_path:
+            p.error('--cycle-lock must be absolute and outside the synchronized tree')
     if not args.remote:
         p.error("remote required: pass host:remote_dir or set AGENTS_SYNC_REMOTE for watch")
 
