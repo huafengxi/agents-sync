@@ -177,30 +177,6 @@ GC_WORKSPACE="$HUB_WORKSPACE" GC_AGENTS_DIR="$HUB_AGENTS" python3 ./gc.py list
 AGENTS_SYNC_HUB="$HUB_ID" python3 ./replica-tag.py --root "$TEST_AGENTS" --self "$NODE_ID"
 ```
 
-## 声明与观测的非对称文件运输
-
-`declaration-sync.py --config /absolute/link.json` 是独立前台服务，不使用 agents
-双向 replica/GC 协议，不导入 serviced，不激活服务，也不回写主控期望态。
-调用方提前建立本地目录、远端文件父目录、SSH 访问和 rsync 工具；同步种子
-不能依赖本链接先同步它自己的源码或配置。
-
-配置闭合集：`desiredRemote`（`host:/absolute/file`）、`desiredLocal`（绝对路径）、
-`observationLocal`（绝对路径）、`observationRemote`（`host:/absolute/file`）、
-`sshConfig`（绝对路径）、`rsync`（绝对可执行路径）；可选 `interval`（默认 5s）
-和 `timeout`（每条运输默认 60s）。desired 只远端→本地，observation 只本地→远端。
-每个目标实际观测文件必须由一个节点独占；ACL、端点和授权均由调用方提供。
-
-每轮使用 rsync 的单文件临时落盘与校验，不加 `--delete`，不执行激活回调。
-完整期望态快照由消费方校验；文件缺失/传输失败只诊断，不将本地残留上传。
-SSH 禁连接共享和 LocalCommand，批处理连接有界；中断后下轮重新取当前文件，
-没有跨轮变更队列。停止不再发起新运输，直接 Popen 真实 wait；rsync/ssh 派生
-组的原生身份与整体收口仍归外部监督器。SIGTERM 后断流或 EOF 无法取得时保持
-真实阻塞事实，不假报远端退出。`--once` 供明确的一次性传输核验。
-
-`test_declaration_sync.py` 要求 `DECLARATION_SYNC_OUTPUT` 为全新绝对保留目录。
-测试证明单向路径、重复/断线后最新输入、拒绝非法路径及前台直接子进程 wait；
-使用合成复制器，不证明真实 SSH/rsync 或跨机权限。真实部署证据归调用方。
-
 ## 验证与恢复记录
 
 `test_gc.py`、`test_protect.py`、`test_watch.py`、`test_replica_tag.py`、`test_delete_contract.py` 使用合成树；watch 的真实 rsync 用本地夹具，不 SSH。`test_platform_paths.py` / `test_independent.py` 验证根契约和无 sibling 布局；`test_loop.py` 截获 watch，不调用传输，覆盖 sg、二次 watch、真实/软链入口、引号路径和 TERM。`TEST_BASH=/path/to/bash-3.2` 可选择真实旧 Bash。
